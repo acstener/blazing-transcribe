@@ -1,0 +1,2046 @@
+# =============================================================================
+# Developer & Tech Vocabulary 2026 - Comprehensive ASR Bias List
+# =============================================================================
+# Format: CanonicalForm: alias1, alias2, ...
+# Lines starting with # are comments
+# Phonetic notes in comments where ASR commonly fails
+#
+# Total terms: 800+
+# Last updated: 2026-03-23
+# =============================================================================
+
+
+# =============================================================================
+# 1. PROGRAMMING LANGUAGES
+# =============================================================================
+
+# Phonetic: "JAVE-uh-script" — ASR sometimes hears "java script" as two words
+JavaScript: JS, Javascript, java script
+TypeScript: TS, Typescript, type script
+Python: python
+# Phonetic: "RUST" — rarely misheard but ASR may capitalize oddly
+Rust
+# Phonetic: "GO" — very short, often lost; "Golang" is safer for ASR
+Go: Golang, golang
+# Phonetic: "ZIG" — may hear "zig" as "sick" or "sig"
+Zig
+# Phonetic: "MO-jo" — ASR may hear "mojo" as "moho" or "mo joe"
+Mojo
+Java
+# Phonetic: "SEE-sharp" — ASR hears "C sharp" or "see sharp"
+C#: C sharp, CSharp, csharp
+# Phonetic: "SEE-plus-plus" — ASR hears "C plus plus" as separate words
+C++: C plus plus, CPP, cpp
+C
+# Phonetic: "SWIFT" — clean, rarely misheard
+Swift
+# Phonetic: "KOT-lin" — ASR sometimes hears "cotton" or "caught lin"
+Kotlin: kotlin
+# Phonetic: "SKAH-luh" — ASR may hear "scholar"
+Scala: scala
+# Phonetic: "DOT-net" — ASR hears "dot net" as two words
+.NET: dotnet, dot net, DotNet
+# Phonetic: "EF-sharp" — ASR hears "F sharp" or "eff sharp"
+F#: F sharp, FSharp, fsharp
+# Phonetic: "ee-LICK-sir" — ASR sometimes hears "elixir" as "a lick sir"
+Elixir
+# Phonetic: "AIR-lang" — ASR may hear "earl lang" or "err lang"
+Erlang
+# Phonetic: "KLOH-zhur" — ASR may hear "closure" instead
+Clojure: clojure
+Haskell
+# Phonetic: "OH-camel" — ASR hears "oh camel"
+OCaml: ocaml, O camel
+# Phonetic: "PURRL" — ASR may hear "pearl"
+Perl
+# Phonetic: "ROO-bee" — clean
+Ruby
+# Phonetic: "PEE-AYCH-PEE" — ASR may hear "P.H.P." or "PHP" as "peach pee"
+PHP: php
+Lua
+# Phonetic: "ARE" — very short, may be lost
+R: R lang, rlang
+# Phonetic: "JOO-lee-uh" — ASR sometimes hears "Julia" as name
+Julia
+# Phonetic: "DART" — clean
+Dart
+# Phonetic: "NIM" — may hear "name" or "neem"
+Nim
+# Phonetic: "KRISS-tul" — ASR may hear "crystal" correctly but miscase
+Crystal
+# Phonetic: "VEE" — very short
+V: Vlang, vlang
+# Phonetic: "GROH-vee" — clean
+Groovy
+# Phonetic: "ob-JECK-tiv SEE" — ASR hears as multiple words
+Objective-C: ObjC, Objective C
+# Phonetic: "WEB-assembly" or "WAZM" — acronym often misheard
+WebAssembly: WASM, Wasm, wasm, Web Assembly
+# Phonetic: "ess-KYOO-ell" or "SEE-kwel"
+SQL: sequel, S Q L
+# Phonetic: "BASH" — may hear "batch"
+Bash: bash, shell script
+# Phonetic: "POW-er-shell" — clean
+PowerShell: Powershell, powershell
+# Phonetic: "CIGH-thon" — ASR may hear "sigh thon" or "python" variant
+Cython: cython
+# Phonetic: "COBOL" — older devs reference
+COBOL: Cobol
+Fortran
+# Phonetic: "rye-AKT" — newer reactive lang
+Roc
+# Phonetic: "GLEAM"
+Gleam
+# Phonetic: "ODIN"
+Odin
+Vale
+Carbon
+
+
+# =============================================================================
+# 2. FRONTEND FRAMEWORKS & LIBRARIES
+# =============================================================================
+
+# Phonetic: "ree-AKT" — clean, but ASR may hear "react" as common word
+React: ReactJS, React.js, react
+# Phonetic: "VYOO" — ASR hears "view" (common word)
+Vue: VueJS, Vue.js, vue
+# Phonetic: "SVELT" — ASR may hear "svelte" correctly or "felt"
+Svelte: SvelteKit, svelte
+SvelteKit: Svelte Kit, sveltekit
+# Phonetic: "ANG-yoo-lar" — clean
+Angular: AngularJS, angular
+# Phonetic: "SOL-id" — ASR hears "solid" as common word
+Solid: SolidJS, Solid.js, solidjs
+# Phonetic: "KWIK" — ASR hears "quick"
+Qwik: qwik
+# Phonetic: "ASS-troh" — ASR may hear "astro" as common word
+Astro: astro
+# Phonetic: "NEXT" — ASR hears common word "next"
+Next.js: NextJS, Nextjs, next js
+# Phonetic: "NUXT" — ASR may hear "next" or "nux"
+Nuxt: NuxtJS, Nuxt.js, nuxt
+# Phonetic: "GAT-sbee" — ASR may hear "Gatsby" correctly (literary ref)
+Gatsby: GatsbyJS, gatsby
+# Phonetic: "reh-MIX" — clean
+Remix: remix
+# Phonetic: "PREE-akt" — ASR may hear "pre act" or confuse with "React"
+Preact: preact
+# Phonetic: "ALP-ine" — ASR hears "alpine"
+Alpine.js: AlpineJS, Alpine JS, alpine js
+# Phonetic: "LIT" — very short, common word
+Lit: lit, LitElement, lit element
+# Phonetic: "STEN-sil" — ASR hears "stencil"
+Stencil: StencilJS, stencil
+# Phonetic: "FRESH" — common word
+Fresh: fresh, Deno Fresh
+# Phonetic: "AN-AH-log" — ASR may hear "analog"
+Analog: analog, AnalogJS
+# Phonetic: "EM-ber" — clean
+Ember: EmberJS, Ember.js
+# Phonetic: "BACK-bone" — clean
+Backbone: BackboneJS
+# Phonetic: "HETCH-tee-EM-ecks" or "HTM-X"
+HTMX: htmx, H T M X
+# Phonetic: "IN-ER-sha" — ASR may hear "inertia"
+Inertia: InertiaJS, Inertia.js, inertia
+# Phonetic: "TANE-stack" — ASR may hear "tan stack"
+TanStack: Tanstack, tan stack
+# Phonetic: "ree-AKT query" — multi-word
+React Query: ReactQuery, react query
+# Phonetic: "ZOO-stand" — ASR may hear "zoo stand" or "zoo stahnd"
+Zustand: zustand
+# Phonetic: "joe-TIE" — ASR may hear "joe tie" or "jotai"
+Jotai: jotai
+# Phonetic: "REE-koil" — clean
+Recoil: recoil
+# Phonetic: "reh-DUCKS" — ASR may hear "redux" as "re ducks"
+Redux: ReduxJS, redux
+# Phonetic: "MOBS" or "MOB-ecks" — ASR may hear "mobs"
+MobX: Mobx, mobx
+# Phonetic: "PEE-nee-uh" — ASR may hear "pina" or "penia"
+Pinia: pinia
+# Phonetic: "VUEX" — ASR may hear "view X" or "vex"
+Vuex: vuex
+# Phonetic: "TAIL-wind" — ASR hears "tailwind" as common word
+Tailwind CSS: TailwindCSS, Tailwind, tailwind
+# Phonetic: "SHAH-den" — ASR may hear "shadow" or "shad CN"
+shadcn: shadcn/ui, shad cn, shadow cn
+# Phonetic: "ruh-DIX" or "RAY-dix" — ASR may hear "radix"
+Radix: Radix UI, radix
+# Phonetic: "CHAK-ruh" — ASR may hear "chakra"
+Chakra UI: ChakraUI, Chakra, chakra
+# Phonetic: "MANTER-een" or "MAN-teen" — ASR may hear "man teen"
+Mantine: mantine
+# Phonetic: "ANT dee-ZINE" — ASR may hear "ant design"
+Ant Design: AntDesign, antd, ant d
+# Phonetic: "MAH-teer-ee-ul YOU-eye" — long compound
+Material UI: MaterialUI, MUI, mui
+# Phonetic: "DAISY you-eye" — clean
+DaisyUI: daisyui, Daisy UI
+# Phonetic: "PRYME ree-AKT" — multi-word
+PrimeReact
+PrimeVue
+Headless UI: HeadlessUI, headless ui
+
+
+# =============================================================================
+# 3. BACKEND FRAMEWORKS
+# =============================================================================
+
+# Phonetic: "ecks-PRESS" — common word
+Express: ExpressJS, Express.js, express
+# Phonetic: "FAST-ay-pee-eye" — ASR may hear "fast A P I"
+FastAPI: fastapi, fast API, Fast API
+# Phonetic: "JANG-oh" — ASR may hear "Django" correctly
+Django: django
+# Phonetic: "RAYLZ" — ASR hears "rails" as common word
+Rails: Ruby on Rails, RoR, rails
+# Phonetic: "SPRING" — common word
+Spring: Spring Boot, SpringBoot, spring boot
+# Phonetic: "AK-tix" — ASR may hear "act ix" or "actics"
+Actix: actix, Actix Web, actix-web
+# Phonetic: "AX-um" — ASR may hear "axe um" or "ax um"
+Axum: axum
+# Phonetic: "FLASK" — clean
+Flask: flask
+# Phonetic: "NIST" or "NEST" — ASR may hear "nest"
+NestJS: Nest JS, nest js, Nest.js
+# Phonetic: "KOH-uh" — ASR may hear "co-ah" or "Koa"
+Koa: koa
+# Phonetic: "HAPP-ee" — common word
+Hapi: hapi
+# Phonetic: "GIN" — common word (the drink)
+Gin: gin
+# Phonetic: "ECK-oh" — common word
+Echo: echo
+# Phonetic: "FIGH-ber" — ASR hears "fiber"
+Fiber: fiber, Go Fiber
+# Phonetic: "LARA-vel" — ASR may hear "laravel" or "lara vel"
+Laravel: laravel
+# Phonetic: "SIM-fuh-nee" — ASR hears "symphony"
+Symfony: symfony
+# Phonetic: "ROCKET" — common word
+Rocket: rocket
+# Phonetic: "PHEE-nix" — ASR hears "phoenix"
+Phoenix: phoenix, Phoenix Framework
+# Phonetic: "AH-skuh" — ASR may hear "Oscar" or "Aska"
+Orca
+Elysia: elysia
+Hono: hono
+# Phonetic: "STAHR-let" — ASR may hear "starlet"
+Starlette: starlette
+# Phonetic: "luh-TEE-go" — ASR may hear "let ego"
+Litestar: litestar
+# Phonetic: "GRAILS" — clean
+Grails: grails
+# Phonetic: "MICE-roh-naught" — ASR may hear "micro not"
+Micronaut: micronaut
+# Phonetic: "KWARK-us" — ASR may hear "quark us"
+Quarkus: quarkus
+# Phonetic: "VERT-ecks" — ASR may hear "vertex"
+Vert.x: Vertx, vertx
+# Phonetic: "AY-DON-iss" — ASR may hear "Adonis"
+AdonisJS: Adonis, adonisjs
+# Phonetic: "STRAH-pee" — ASR may hear "strappy"
+Strapi: strapi
+# Phonetic: "KEY-stone" — common word
+Keystone: KeystoneJS, keystone
+# Phonetic: "die-RECT-us" — ASR may hear "directus"
+Directus: directus
+# Phonetic: "pay-LOAD" — common word
+Payload: PayloadCMS, payload
+# Phonetic: "SAN-ih-tee" — common word
+Sanity: Sanity.io, sanity
+# Phonetic: "CONTENT-ful" — clean
+Contentful: contentful
+
+
+# =============================================================================
+# 4. DATABASES
+# =============================================================================
+
+# Phonetic: "POST-gress" or "POST-gress-KYOO-ell" — ASR often hears "post gress"
+PostgreSQL: Postgres, postgres, PG, pg, post gres
+# Phonetic: "MONG-oh-dee-bee" — ASR may hear "Mongo DB"
+MongoDB: Mongo, mongo, Mongo DB
+# Phonetic: "RED-iss" — ASR may hear "red is"
+Redis: redis
+# Phonetic: "my-ess-KYOO-ell" or "my SEE-kwel" — both pronunciations exist
+MySQL: my SQL, mysql, My SQL
+# Phonetic: "ESS-KYOO-lite" or "SEE-kwel-lite"
+SQLite: sqlite, SQL Lite, sequel lite
+# Phonetic: "SOOPA-base" — ASR may hear "super base"
+Supabase: supabase, super base
+# Phonetic: "PLAN-it-scale" — clean
+PlanetScale: Planetscale, planet scale
+# Phonetic: "TUR-soh" — ASR may hear "torso"
+Turso: turso
+# Phonetic: "NEE-on" — common word
+Neon: neon, Neon DB, NeonDB
+# Phonetic: "COCK-roach-dee-bee" — ASR may hear "cockroach DB"
+CockroachDB: Cockroach DB, CockroachDB, cockroachdb, CRDB
+# Phonetic: "dy-NAH-moh-dee-bee" — AWS service
+DynamoDB: Dynamo DB, dynamodb
+# Phonetic: "FIRE-store" — clean
+Firestore: firestore, Cloud Firestore
+# Phonetic: "cuh-SAND-ruh" — ASR may hear "Cassandra"
+Cassandra: cassandra, Apache Cassandra
+# Phonetic: "COUCH-dee-bee" — clean
+CouchDB: Couch DB, couchdb
+# Phonetic: "NEE-oh-FOR-jay" — ASR may hear "neo 4 J"
+Neo4j: neo4j, Neo 4j
+# Phonetic: "ee-LASS-tik-search" — clean
+Elasticsearch: elastic search, ElasticSearch, ES
+# Phonetic: "CLICK-house" — ASR hears "click house" as two words
+ClickHouse: Clickhouse, clickhouse, click house
+# Phonetic: "TYME-scale-dee-bee" — clean
+TimescaleDB: Timescale, timescaledb
+# Phonetic: "in-FLUX-dee-bee" — clean
+InfluxDB: Influx DB, influxdb
+# Phonetic: "FAW-nah" — ASR may hear "fauna"
+Fauna: FaunaDB, fauna
+# Phonetic: "PLAN-ee-tee-ess" — variant of planet scale
+# Phonetic: "ess-you-are-ee-ul" — ASR may hear "surreal"
+SurrealDB: Surreal DB, surreal db, surrealdb
+# Phonetic: "dee-RIZE" — ASR may hear "Drise" or "D Rise"
+Drizzle: Drizzle ORM, drizzle
+# Phonetic: "PRIZ-muh" — ASR may hear "prism" or "prisma"
+Prisma: prisma, Prisma ORM
+# Phonetic: "SEE-kwel-ize" — clean
+Sequelize: sequelize
+# Phonetic: "TYPE-oh-are-em" — ASR may hear "type ORM"
+TypeORM: typeorm, Type ORM
+# Phonetic: "kee-SLEE" — ASR may hear "Keesly"
+Kysely: kysely
+# Phonetic: "dee-BATE" — common word
+D1: Cloudflare D1
+# Phonetic: "LIVE-blah-cks" — ASR may hear "live blocks"
+libSQL: lib SQL, lib sequel
+# Phonetic: "POJ-oh-dee-bee" or "POCK-it-base"
+PocketBase: Pocketbase, pocketbase, pocket base
+# Phonetic: "UP-stash" — ASR may hear "up stash"
+Upstash: upstash
+# Phonetic: "VER-sel kay-vee" — ASR may hear "vercel KV"
+Vercel KV: VercelKV
+# Phonetic: "SCALE-ur" — ASR may hear "scalar"
+ScyllaDB: Scylla, scylladb
+# Phonetic: "TIGH-dee-bee" — clean
+TiDB: tidb
+# Phonetic: "VIT-ess" — ASR may hear "vitess" or "vye tess"
+Vitess: vitess
+# Phonetic: "SAP Hannah" — ASR may hear "Hannah"
+SAP HANA: HANA, S/4HANA
+ArangoDB: Arango, arangodb
+RethinkDB: Rethink, rethinkdb
+FoundationDB: Foundation DB
+# Phonetic: "EDGE-dee-bee" — clean
+EdgeDB: edgedb, Edge DB
+# Phonetic: "MIL-vus" — ASR may hear "mill vus"
+Milvus: milvus
+# Phonetic: "PINE-cone" — common word
+Pinecone: pinecone
+# Phonetic: "WEE-vee-ate" — ASR may hear "we v8"
+Weaviate: weaviate
+# Phonetic: "CHROMA" — clean
+Chroma: ChromaDB, chroma
+# Phonetic: "KWUD-rant" — ASR may hear "quadrant"
+Qdrant: qdrant
+
+
+# =============================================================================
+# 5. CLOUD PROVIDERS & SERVICES
+# =============================================================================
+
+# --- AWS ---
+AWS: Amazon Web Services, A W S
+# Phonetic: "EE-see-too" — ASR may hear "easy two" or "E C 2"
+EC2: ec2, E C 2
+# Phonetic: "ESS-three" — ASR may hear "S 3"
+S3: s3, S 3
+# Phonetic: "LAM-duh" — ASR hears "lambda"
+Lambda: AWS Lambda, lambda
+# Phonetic: "EE-see-ESS" — ASR may hear "E C S"
+ECS: ecs, E C S
+# Phonetic: "EE-KAY-ESS" — ASR may hear "E K S"
+EKS: eks, E K S
+# Phonetic: "FAR-gate" — ASR may hear "far gate"
+Fargate: fargate, far gate
+# Phonetic: "ARE-dee-ess" — ASR may hear "R D S"
+RDS: rds, R D S
+# Phonetic: "CLOUD-front" — clean
+CloudFront: cloudfront, Cloud Front
+# Phonetic: "CLOUD-watch" — clean
+CloudWatch: cloudwatch, Cloud Watch
+# Phonetic: "CLOUD-formation" — clean
+CloudFormation: cloudformation, Cloud Formation
+# Phonetic: "SAM" — common word
+SAM: AWS SAM, sam
+# Phonetic: "ESS-KYOO-ESS" — ASR may hear "S Q S"
+SQS: sqs, S Q S
+# Phonetic: "ESS-EN-ESS" — ASR may hear "S N S"
+SNS: sns, S N S
+# Phonetic: "COG-nee-toe" — ASR may hear "cognito"
+Cognito: cognito, Amazon Cognito
+# Phonetic: "AMP-lih-fye" — common word
+Amplify: amplify, AWS Amplify
+# Phonetic: "APP-sink" — clean
+AppSync: appsync, App Sync
+# Phonetic: "STEP functions" — clean
+Step Functions: step functions, StepFunctions
+# Phonetic: "ee-LAST-ik bean-stalk" — clean
+Elastic Beanstalk: ElasticBeanstalk
+# Phonetic: "BED-rock" — common word
+Bedrock: AWS Bedrock, bedrock
+# Phonetic: "SAGE-maker" — clean
+SageMaker: Sagemaker, sagemaker, Sage Maker
+# Phonetic: "GLUE" — common word
+Glue: AWS Glue
+# Phonetic: "ath-EE-nuh" — ASR may hear "Athena" (mythology)
+Athena: athena, Amazon Athena
+# Phonetic: "RED-shift" — ASR may hear "red shift"
+Redshift: redshift, Red Shift
+ElastiCache: elasticache, Elastic Cache
+# Phonetic: "ay-pee-eye GATE-way" — clean
+API Gateway: APIGateway, api gateway
+# Phonetic: "eye-AM" — ASR may hear "I am"
+IAM: iam, I A M
+# Phonetic: "KAY-EM-ESS" — ASR may hear "K M S"
+KMS: kms, K M S
+# Phonetic: "SEE-krets manager" — clean
+Secrets Manager: SecretsManager
+# Phonetic: "eye-oh-tee" — ASR may hear "I O T" or "I O tea"
+IoT Core: IoT, iot
+# Phonetic: "KIN-ee-sis" — ASR may hear "kinesis"
+Kinesis: kinesis, Amazon Kinesis
+# Phonetic: "EMR" — initials
+EMR: emr, E M R
+EventBridge: eventbridge, Event Bridge
+CodePipeline: codepipeline, Code Pipeline
+CodeBuild: codebuild, Code Build
+CodeDeploy: codedeploy, Code Deploy
+
+# --- GCP ---
+# Phonetic: "GOO-gul cloud" — clean
+GCP: Google Cloud, Google Cloud Platform, G C P, gcp
+# Phonetic: "BIG-query" — clean
+BigQuery: bigquery, Big Query
+Cloud Run: CloudRun, cloud run
+Cloud Functions: CloudFunctions
+# Phonetic: "GEE-KAY-EE" — ASR may hear "G K E"
+GKE: gke, G K E
+# Phonetic: "SPAN-er" — common word
+Spanner: Cloud Spanner, spanner
+Pub/Sub: PubSub, pub sub
+# Phonetic: "FIRE-base" — clean
+Firebase: firebase, Fire Base
+Vertex AI: VertexAI, vertex AI
+Cloud Storage: CloudStorage
+Dataflow: dataflow
+Dataproc: dataproc
+
+# --- Azure ---
+# Phonetic: "AZH-ur" — ASR sometimes hears "azure" as "asher" or "ah zhure"
+Azure: azure, Microsoft Azure
+# Phonetic: "AKS" — may hear "axe" or "aks"
+AKS: aks, A K S
+Azure Functions: AzureFunctions
+Azure DevOps: AzureDevOps
+Cosmos DB: CosmosDB, cosmosdb, Cosmos
+Azure Blob Storage: BlobStorage
+Azure Active Directory: AAD, Entra ID, EntraID
+
+# --- Other Cloud ---
+# Phonetic: "VER-sel" — ASR may hear "vursel" or "ver cell"
+Vercel: vercel, Ver Cell
+# Phonetic: "NET-lih-fye" — ASR may hear "netlify"
+Netlify: netlify
+# Phonetic: "FLY-dot-eye-oh" — ASR may hear "fly IO"
+Fly.io: Fly, flyio, fly io, Fly IO
+# Phonetic: "RAIL-way" — common word
+Railway: railway
+# Phonetic: "REN-der" — common word
+Render: render, Render.com
+# Phonetic: "DIDJ-ih-tul OH-shun" — clean
+DigitalOcean: Digital Ocean, digitalocean, DO
+# Phonetic: "LINN-ode" — ASR may hear "lin ode"
+Linode: linode
+# Phonetic: "CLOUD-flair" — clean
+Cloudflare: cloudflare, Cloud Flare, CF
+Cloudflare Workers: CF Workers, Workers
+Cloudflare Pages: CF Pages
+# Phonetic: "HER-oh-koo" — ASR may hear "her roku" or "hero koo"
+Heroku: heroku
+# Phonetic: "DENO deploy" — clean
+Deno Deploy: deno deploy
+# Phonetic: "SST" — initials
+SST: sst, S S T, Serverless Stack
+# Phonetic: "COOL-ih-fy" — ASR may hear "coolify"
+Coolify: coolify
+# Phonetic: "KAP-rover" — ASR may hear "cap rover"
+CapRover: caprover
+# Phonetic: "DOK-oo" — ASR may hear "dock you"
+Dokku: dokku, Dokku
+# Phonetic: "NHOST" — ASR may hear "n host"
+Nhost: nhost
+
+
+# =============================================================================
+# 6. DEVOPS & INFRASTRUCTURE
+# =============================================================================
+
+# Phonetic: "KOO-ber-NET-eez" — ASR often hears "kuber netties" or "kuber net ease"
+Kubernetes: K8s, k8s, kube, kuber nettys, kuber net ease
+# Phonetic: "DOCK-er" — ASR hears "docker" sometimes as "doctor"
+Docker: docker, docker compose, Docker Compose
+# Phonetic: "TERRA-form" — clean
+Terraform: terraform, TF, tf
+# Phonetic: "puh-LOO-mee" — ASR may hear "plume ee" or "pull umi"
+Pulumi: pulumi
+# Phonetic: "ANN-sih-bul" — ASR may hear "ansible" as "Ann sable"
+Ansible: ansible
+# Phonetic: "HELM" — common word (nautical)
+Helm: helm
+# Phonetic: "PROM-uh-THEE-us" — ASR may hear "Prometheus" (mythology)
+Prometheus: prometheus
+# Phonetic: "gruh-FAH-nuh" — ASR may hear "Grafana" as "graph Ana"
+Grafana: grafana
+# Phonetic: "NAG-ee-ohs" — ASR may hear "Nagios" as "nag ee ohs"
+Nagios: nagios
+# Phonetic: "JENN-kinz" — ASR may hear "Jenkins" as name
+Jenkins: jenkins
+# Phonetic: "sir-cull-SEE-eye" — ASR may hear "circle CI"
+CircleCI: Circle CI, circleci
+# Phonetic: "TRAV-is SEE-eye" — clean
+Travis CI: TravisCI, travis ci
+# Phonetic: "gih-HUB actions" — clean
+GitHub Actions: GH Actions, gh actions
+# Phonetic: "ARGO" — common word
+Argo CD: ArgoCD, argocd, Argo
+# Phonetic: "FLUX" — common word
+Flux: FluxCD, flux
+# Phonetic: "ISH-tee-oh" — ASR may hear "is tea oh"
+Istio: istio
+# Phonetic: "LINK-erd" — ASR may hear "linked" or "linker D"
+Linkerd: linkerd
+# Phonetic: "EN-voy" — common word
+Envoy: envoy
+# Phonetic: "TRAY-fik" or "trah-FIK" — ASR hears "traffic"
+Traefik: traefik, Traefik
+# Phonetic: "EN-jin-ecks" — ASR may hear "engine X"
+Nginx: nginx, engine X, NGINX
+# Phonetic: "uh-PAH-chee" — ASR hears "Apache" (tribe name)
+Apache: apache
+# Phonetic: "CAD-ee" — ASR may hear "caddy"
+Caddy: caddy
+# Phonetic: "PACK-er" — ASR may hear "packer"
+Packer: packer
+# Phonetic: "VAG-rent" — common word
+Vagrant: vagrant
+# Phonetic: "KAHN-sul" — ASR hears "consul" or "council"
+Consul: consul, HashiCorp Consul
+# Phonetic: "VAULT" — common word
+Vault: vault, HashiCorp Vault
+# Phonetic: "NO-mad" — common word
+Nomad: nomad, HashiCorp Nomad
+# Phonetic: "HASHI-corp" — ASR may hear "hashy corp"
+HashiCorp: Hashicorp, hashicorp
+# Phonetic: "GRAY-log" — ASR may hear "gray log"
+Graylog: graylog
+# Phonetic: "ELK stack" — may hear as "elk"
+ELK Stack: ELK, elk stack, Elastic Stack
+# Phonetic: "kuh-BAH-nuh" — ASR may hear "Kibana"
+Kibana: kibana
+# Phonetic: "LOG-stash" — clean
+Logstash: logstash
+# Phonetic: "FLUE-ent-dee" — ASR may hear "fluent D"
+Fluentd: fluentd, Fluent D
+# Phonetic: "FLUE-ent-bit" — clean
+Fluent Bit: FluentBit, fluent bit
+# Phonetic: "SPINN-uh-ker" — ASR may hear "spinnaker"
+Spinnaker: spinnaker
+# Phonetic: "TECH-ton" — ASR may hear "tecton" or "Tekton"
+Tekton: tekton
+# Phonetic: "DRONE" — common word
+Drone: drone, Drone CI
+# Phonetic: "KAY-native" — ASR may hear "K native"
+Knative: knative, K native
+# Phonetic: "OPEN-shift" — clean
+OpenShift: openshift, Open Shift
+# Phonetic: "RANCH-er" — common word
+Rancher: rancher
+# Phonetic: "KAY-three-ess" — ASR may hear "K 3 S"
+K3s: k3s, K3S
+# Phonetic: "MINI-kube" — ASR may hear "mini cube"
+Minikube: minikube, mini kube
+# Phonetic: "KIND" — common word
+Kind: kind, Kubernetes in Docker
+# Phonetic: "SKA-fold" — common word
+Skaffold: skaffold
+# Phonetic: "TILT" — common word
+Tilt: tilt, Tilt Dev
+# Phonetic: "kuh-STOH-mize" — ASR may hear "customize"
+Kustomize: kustomize
+
+
+# =============================================================================
+# 7. AI/ML TOOLS, MODELS & FRAMEWORKS
+# =============================================================================
+
+# --- AI Assistants & Chat ---
+# Phonetic: "CHAT-jee-pee-tee" — ASR may hear "chat G P T"
+ChatGPT: chat GPT, Chat G P T, chatgpt
+# Phonetic: "CLAUDE" — ASR may hear "clod", "clawed", or "claw"
+Claude: clawed, claw, clod
+Claude Code: clawed code, claw code, cloud code, clod code
+# Phonetic: "JEM-ih-nye" — ASR may hear "gem in eye" or "Gemini" (zodiac)
+Gemini: gemini, Google Gemini
+# Phonetic: "COPE-eye-let" — ASR may hear "co pilot"
+Copilot: GitHub Copilot, copilot, co pilot, Co Pilot
+# Phonetic: "GROK" — common word in tech
+Grok: grok, xAI Grok
+# Phonetic: "PURR-plex-ih-tee" — clean
+Perplexity: perplexity, Perplexity AI
+# Phonetic: "DEE-seeker" — ASR may hear "deep seeker"
+DeepSeek: Deepseek, deep seek, DeepSeek V3, DeepSeek R1
+# Phonetic: "MISS-tral" — ASR may hear "mistral" correctly (wind name)
+Mistral: mistral, Mistral AI
+# Phonetic: "oh-PEN-ay-eye" — clean
+OpenAI: open AI, Open A I, openai
+
+# --- Open Source Models ---
+# Phonetic: "LAH-muh" — ASR hears "llama" (the animal)
+Llama: LLaMA, llama, Meta Llama, Llama 3, Llama 4
+# Phonetic: "oh-LAH-muh" — ASR may hear "Oh llama"
+Ollama: ollama, oh llama
+# Phonetic: "KWENN" — ASR may hear "Quinn" or "Quen"
+Qwen: qwen, Qwen 3
+# Phonetic: "FIGH" — ASR may hear "fee" or "five" for the number
+Phi: phi, Microsoft Phi, Phi-4
+# Phonetic: "STAH-bull diff-YOO-zhun" — clean
+Stable Diffusion: StableDiffusion, stable diffusion, SD
+# Phonetic: "MID-journey" — clean
+Midjourney: midjourney, Mid Journey
+# Phonetic: "DALL-ee" — ASR may hear "dolly" or "Dali"
+DALL-E: Dall-E, dall-e, DALLE, Dall E
+# Phonetic: "FLUX" — common word
+Flux: flux model
+# Phonetic: "WHISPER" — common word
+Whisper: whisper, OpenAI Whisper
+# Phonetic: "COMMA" — ASR definitely hears "comma" the punctuation mark
+Command R: Command R Plus, Cohere Command
+# Phonetic: "jem-uh" — ASR may hear "gem ah"
+Gemma: gemma, Google Gemma
+# Phonetic: "mix-tral" — ASR may hear "mix tral" or "mistral"
+Mixtral: mixtral
+# Phonetic: "FALCON" — common word
+Falcon: falcon
+# Phonetic: "YEE" — very short
+Yi: yi
+# Phonetic: "DAHL-fee" — ASR may hear "dolphin"
+Dolphin: dolphin
+# Phonetic: "CODE-lah-muh" — clean
+CodeLlama: Code Llama, codellama
+# Phonetic: "STAR-coder" — clean
+StarCoder: starcoder, Star Coder
+# Phonetic: "CODE-jem-uh" — clean
+CodeGemma: codegemma
+# Phonetic: "dee-BREED" — ASR may hear "debris" or "DeBreed"
+DeepCoder
+# Phonetic: "moh-ON-day" — ASR may hear "moondream"
+Moondream: moondream
+
+# --- ML Frameworks ---
+# Phonetic: "TEN-sir-flow" — ASR may hear "tensor flow" as two words
+TensorFlow: Tensorflow, tensorflow, TF
+# Phonetic: "PIE-torch" — ASR may hear "pie torch"
+PyTorch: pytorch, Py Torch, pie torch
+# Phonetic: "JAX" — clean
+JAX: jax
+# Phonetic: "CARE-us" — ASR may hear "keras" as "care us"
+Keras: keras
+# Phonetic: "SY-kit-learn" — ASR may hear "psy kit learn" or "sy kit learn"
+scikit-learn: sklearn, scikit learn, sk learn
+# Phonetic: "EX-gradient-boost" — ASR may hear "X G boost"
+XGBoost: xgboost, XG Boost
+# Phonetic: "LIGHT-gee-bee-em" — ASR may hear "light GBM"
+LightGBM: lightgbm, Light GBM
+# Phonetic: "CORE-em-ell" — ASR may hear "core ML"
+Core ML: CoreML, coreml
+# Phonetic: "EM-EL-ecks" — ASR may hear "M L X"
+MLX: mlx, M L X
+# Phonetic: "TEN-sir-are-tee" — ASR may hear "tensor RT"
+TensorRT: tensorrt, Tensor RT
+# Phonetic: "TRITON" — common word
+Triton: triton, NVIDIA Triton
+# Phonetic: "ON-ecks" — ASR may hear "on X"
+ONNX: onnx, O N N X
+# Phonetic: "ANN-ee" — ASR may hear "Annie"
+ANE: ane, A N E, Apple Neural Engine
+# Phonetic: "ANN-ee opti-mizer" — Apple specific
+ANEOptimizer
+# Phonetic: "em-pee-ess" — ASR may hear "M P S"
+MPS: mps, M P S, Metal Performance Shaders
+# Phonetic: "MEL spec" — ASR may hear "mel spec"
+MelSpectrogram: mel spectrogram
+
+# --- AI/ML Tools & Platforms ---
+# Phonetic: "HUGG-ing-face" — ASR may hear "hugging face" as two words
+HuggingFace: Hugging Face, huggingface, HF
+# Phonetic: "LANG-chain" — clean
+LangChain: langchain, Lang Chain
+# Phonetic: "LANG-smith" — clean
+LangSmith: langsmith, Lang Smith
+# Phonetic: "LANG-graph" — clean
+LangGraph: langgraph, Lang Graph
+# Phonetic: "LLAMA-index" — clean
+LlamaIndex: llama index, llamaindex
+# Phonetic: "VEE-ell-ell-em" — ASR may hear "V L L M"
+vLLM: vllm, V L L M
+# Phonetic: "WEIGHTS-and-BY-uh-sez" — clean
+Weights & Biases: WandB, wandb, W and B, W&B
+# Phonetic: "em-ell-flow" — ASR may hear "ML flow"
+MLflow: mlflow, ML Flow
+# Phonetic: "RAY" — common word
+Ray: ray, Ray AI
+# Phonetic: "ROBO-flow" — clean
+Roboflow: roboflow
+# Phonetic: "REP-lit" — ASR may hear "replicate"
+Replicate: replicate
+# Phonetic: "MOH-dul" — ASR may hear "modal"
+Modal: modal, Modal Labs
+# Phonetic: "RUN-pod" — clean
+RunPod: runpod, Run Pod
+# Phonetic: "TO-geh-ther-ay-eye" — clean
+Together AI: TogetherAI, together ai, Together
+# Phonetic: "GROHK" — ASR may hear "Grok" (different product)
+Groq: groq
+# Phonetic: "FIRE-works" — common word
+Fireworks: Fireworks AI, fireworks
+# Phonetic: "ANN-ee-scale" — ASR may hear "any scale"
+Anyscale: anyscale, Any Scale
+# Phonetic: "COHERE" — common word
+Cohere: cohere
+# Phonetic: "AI-twenty-one labs" — clean
+AI21: AI21 Labs, AI 21
+# Phonetic: "deter-min-ISTIC ay-eye" — long compound
+Deterministic AI
+# Phonetic: "AUTO-gen" — ASR may hear "auto gen"
+AutoGen: autogen, Auto Gen
+# Phonetic: "CREW-ay-eye" — ASR may hear "crew AI"
+CrewAI: crewai, Crew AI
+# Phonetic: "semantic kernel" — clean but multi-word
+Semantic Kernel: SemanticKernel
+# Phonetic: "LASS-oh" — ASR may hear "lasso"
+LiteLLM: litellm, Lite LLM
+# Phonetic: "HAY-stack" — common word
+Haystack: haystack, deepset Haystack
+# Phonetic: "CHROMA-dee-bee" — ASR may hear "chroma DB"
+ChromaDB: chroma db, chromadb
+# Phonetic: "RAG" — common word (retrieval augmented generation)
+RAG: rag, R A G
+# Phonetic: "ELL-ELL-EM" — ASR may hear "L L M"
+LLM: llm, L L M, large language model
+# Phonetic: "GEE-PEE-TEE" — ASR may hear "G P T"
+GPT: gpt, G P T
+# Phonetic: "gee-pee-tee-four" — ASR may hear "GPT 4"
+GPT-4: GPT 4, gpt4, GPT-4o, GPT-4 Turbo
+# Phonetic: "OH-one" — ASR may hear "oh one" or "O 1"
+o1: O1, o 1
+o3: O3, o 3
+# Phonetic: "LORE-uh" — ASR may hear "Laura" or "Lora"
+LoRA: lora, Lo RA, Low Rank Adaptation
+# Phonetic: "KYOO-lore-uh" — ASR may hear "Q Laura"
+QLoRA: qlora, Q LoRA
+# Phonetic: "fine tune" — common words but important term
+fine-tuning: fine tuning, finetune, finetuning
+# Phonetic: "TRANS-former" — common word
+transformer: Transformer, transformers
+# Phonetic: "uh-TEN-shun" — common word
+attention: self-attention, self attention, multi-head attention
+# Phonetic: "EM-bed-ing" — common word
+embedding: embeddings
+# Phonetic: "TOKE-en-izer" — clean
+tokenizer: tokeniser
+# Phonetic: "CON-text window" — clean
+context window: context length
+# Phonetic: "HAL-loo-sin-AY-shun" — clean
+hallucination: hallucinations
+# Phonetic: "TOK-en" — common word
+token: tokens
+# Phonetic: "IN-fur-ence" — clean
+inference: inferencing
+# Phonetic: "KWAN-tize" — ASR may hear "quantize"
+quantization: quantize, quantized, GPTQ, AWQ, GGUF, GGML
+
+
+# =============================================================================
+# 8. BUILD TOOLS & PACKAGE MANAGERS
+# =============================================================================
+
+# Phonetic: "WEB-pack" — ASR may hear "web pack"
+webpack: Webpack, web pack
+# Phonetic: "VEET" — ASR often hears "vite" as "vight" or "veet"
+Vite: vite, veet
+# Phonetic: "TUR-boh-pack" — clean
+Turbopack: turbopack, Turbo Pack
+# Phonetic: "ee-ESS-build" — ASR may hear "ES build"
+esbuild: ESBuild, es build
+# Phonetic: "ROL-up" — common word
+Rollup: rollup, Roll Up, RollupJS
+# Phonetic: "PAR-sul" — common word
+Parcel: parcel
+# Phonetic: "SWEE-SEE" — ASR may hear "SWC" as letters
+SWC: swc, S W C
+# Phonetic: "PIE-NPM" or "PEE-npm" — ASR may hear "P npm"
+pnpm: PNPM, p n p m
+# Phonetic: "YARN" — common word
+Yarn: yarn
+# Phonetic: "npm" — ASR may hear "N P M"
+npm: NPM, N P M
+# Phonetic: "BUNN" — ASR hears "bun" as common word
+Bun: bun
+# Phonetic: "DEE-no" — ASR may hear "deno" or "dee no"
+Deno: deno, Dee No
+# Phonetic: "TUR-boh-REE-poh" — clean
+Turborepo: turborepo, Turbo Repo
+# Phonetic: "NX" — ASR may hear "N X" or "nix"
+Nx: nx, N X
+# Phonetic: "LEAR-nuh" — ASR may hear "learner"
+Lerna: lerna
+# Phonetic: "GULP" — common word
+Gulp: gulp
+# Phonetic: "GRUNT" — common word
+Grunt: grunt
+# Phonetic: "MAKE" — common word
+Make: make, Makefile, makefile
+# Phonetic: "BAY-zel" — ASR may hear "basil" or "Bazel"
+Bazel: bazel
+# Phonetic: "SEE-make" — ASR may hear "C make"
+CMake: cmake, C Make
+# Phonetic: "NINJA" — common word
+Ninja: ninja
+# Phonetic: "MEES-on" — ASR may hear "me son" or "mason"
+Meson: meson
+# Phonetic: "BREW" — common word
+Homebrew: brew, home brew
+# Phonetic: "CHOCK-oh-lah-tee" — common word
+Chocolatey: choco, chocolatey
+# Phonetic: "SCOOP" — common word
+Scoop: scoop
+# Phonetic: "NICKS" — ASR may hear "nix" or "knicks"
+Nix: nix, NixOS, nixpkgs
+# Phonetic: "GWAY-mix" — ASR may hear "gwix"
+Guix: guix
+# Phonetic: "CRATE" — common word
+Cargo: cargo, Rust Cargo
+# Phonetic: "PIP" — common word
+pip: pip3, pypi, PyPI
+# Phonetic: "poh-ETR-ee" — common word
+Poetry: poetry
+# Phonetic: "OOV" — ASR may hear "UV" like ultraviolet
+uv: UV
+# Phonetic: "CONDA" — ASR may hear "conda"
+Conda: conda, Anaconda, Miniconda
+# Phonetic: "RYE" — common word
+Rye: rye
+# Phonetic: "HATCH" — common word
+Hatch: hatch, hatchling
+# Phonetic: "GRADLE" — ASR may hear "cradle"
+Gradle: gradle
+# Phonetic: "MAY-ven" — ASR may hear "maven"
+Maven: maven
+# Phonetic: "COH-co-pods" — ASR may hear "cocoa pods"
+CocoaPods: Cocoapods, cocoapods, cocoa pods
+# Phonetic: "SWIFT package manager" — clean
+SPM: Swift Package Manager, spm
+# Phonetic: "CART-idge" — common word, but it's Carthage
+Carthage: carthage
+
+
+# =============================================================================
+# 9. TESTING FRAMEWORKS
+# =============================================================================
+
+# Phonetic: "JEST" — common word
+Jest: jest
+# Phonetic: "vee-TEST" — ASR may hear "V test"
+Vitest: vitest, V Test
+# Phonetic: "PLAY-right" — ASR may hear "playwright" (literary term)
+Playwright: playwright, Play Wright
+# Phonetic: "SY-press" — ASR may hear "cypress" (tree)
+Cypress: cypress
+# Phonetic: "PIE-test" — ASR may hear "pie test"
+pytest: Pytest, py test
+# Phonetic: "MOH-kuh" — ASR may hear "mocha" (coffee)
+Mocha: mocha
+# Phonetic: "CHAI" — ASR may hear "chai" (tea)
+Chai: chai
+# Phonetic: "juh-SMINE" — common name
+Jasmine: jasmine
+# Phonetic: "KAR-muh" — common word
+Karma: karma
+# Phonetic: "SEL-en-ee-um" — common element name
+Selenium: selenium
+# Phonetic: "stohree-BOOK" — clean
+Storybook: storybook, Story Book
+# Phonetic: "CHRO-MAT-ik" — clean
+Chromatic: chromatic
+# Phonetic: "TESTING library" — clean
+Testing Library: React Testing Library, RTL
+# Phonetic: "EN-zyme" — ASR may hear "enzyme"
+Enzyme: enzyme
+# Phonetic: "YOU-nit" — common word
+JUnit: junit, J Unit
+# Phonetic: "TEST-en-gee" — ASR may hear "test NG"
+TestNG: testng, Test NG
+# Phonetic: "NEW-nit" — ASR may hear "new knit"
+NUnit: nunit
+# Phonetic: "EX-unit" — ASR may hear "X unit"
+xUnit: xunit, X Unit
+# Phonetic: "ARE-spec" — ASR may hear "R spec"
+RSpec: rspec, R Spec
+# Phonetic: "MINN-ee-test" — clean
+Minitest: minitest
+# Phonetic: "GO-test" — clean
+go test: gotest
+# Phonetic: "CAT-ching" — common word
+Catch2: catch2, Catch
+# Phonetic: "GOO-gul-test" — clean
+Google Test: gtest, googletest
+# Phonetic: "QUICK" — common word (Swift testing)
+Quick: quick
+# Phonetic: "NIM-ble" — common word (Swift testing)
+Nimble: nimble
+# Phonetic: "APPLE-um" — ASR may hear "appium"
+Appium: appium
+# Phonetic: "duh-TATCH-ee" — ASR may hear "detox"
+Detox: detox
+# Phonetic: "MAY-stro" — common word
+Maestro: maestro
+# Phonetic: "KAY-six" — ASR may hear "K 6"
+k6: K6, k 6
+# Phonetic: "guh-TAT-ling" — ASR may hear "gatling"
+Gatling: gatling
+# Phonetic: "low-KUST" — common word
+Locust: locust
+# Phonetic: "AIR-tee-LAIR-ee" — ASR may hear "artillery"
+Artillery: artillery
+
+
+# =============================================================================
+# 10. VERSION CONTROL & COLLABORATION
+# =============================================================================
+
+# Phonetic: "GIT" — common word, ASR may hear "get"
+Git: git
+# Phonetic: "GIT-hub" — ASR may hear "get hub"
+GitHub: Github, github, GH, gh
+# Phonetic: "GIT-lab" — clean
+GitLab: Gitlab, gitlab
+# Phonetic: "BIT-bucket" — clean
+Bitbucket: bitbucket, Bit Bucket
+# Phonetic: "LIN-ee-ar" — common word
+Linear: linear, Linear App
+# Phonetic: "JEER-uh" — ASR may hear "Jira" as "Jeer-uh" or "gee-ruh"
+Jira: jira, JIRA
+# Phonetic: "NO-shun" — common word
+Notion: notion
+# Phonetic: "CLICK-up" — clean
+ClickUp: clickup, Click Up
+# Phonetic: "uh-SAH-nuh" — ASR may hear "Asana" (yoga term)
+Asana: asana
+# Phonetic: "TREL-oh" — ASR may hear "trell oh"
+Trello: trello
+# Phonetic: "SLACK" — common word
+Slack: slack
+# Phonetic: "DISCORD" — common word
+Discord: discord
+# Phonetic: "CONF-loo-ence" — common word
+Confluence: confluence
+# Phonetic: "BASE-camp" — clean
+Basecamp: basecamp, Base Camp
+# Phonetic: "SHORT-cut" — common word (formerly Clubhouse)
+Shortcut: shortcut
+# Phonetic: "ZEN-hub" — clean
+ZenHub: zenhub, Zen Hub
+# Phonetic: "GITEA" — ASR may hear "git tea" or "gitty"
+Gitea: gitea
+# Phonetic: "GOGS" — clean
+Gogs: gogs
+# Phonetic: "PHABRICATOR" — ASR may hear "fabricator"
+Phabricator: phabricator
+# Phonetic: "GER-it" — ASR may hear "gerrit" or "garret"
+Gerrit: gerrit
+# Phonetic: "CODE-berg" — clean
+Codeberg: codeberg, Code Berg
+# Phonetic: "SOURCE-hut" — clean
+Sourcehut: sourcehut, Source Hut, sr.ht
+
+
+# =============================================================================
+# 11. API & PROTOCOL TERMS
+# =============================================================================
+
+# Phonetic: "GRAF-KYOO-ell" — ASR may hear "graph QL" or "graph cule"
+GraphQL: graphql, Graph QL, graph Q L
+# Phonetic: "GEE-are-pee-see" — ASR may hear "G R P C"
+gRPC: grpc, G R P C, g RPC
+# Phonetic: "REST" — common word
+REST: rest, RESTful, restful
+# Phonetic: "REST-ful ay-pee-eye" — clean
+RESTful API: REST API, rest api
+# Phonetic: "WEB-socket" — ASR may hear "web socket"
+WebSocket: websocket, Web Socket, WS
+# Phonetic: "TEE-are-pee-see" — ASR may hear "T R P C"
+tRPC: trpc, T R P C
+# Phonetic: "OH-auth" — ASR may hear "oh auth" or "O auth"
+OAuth: oauth, O Auth, OAuth2, OAuth 2.0
+# Phonetic: "OPEN-ay-pee-eye" — clean
+OpenAPI: openapi, Open API
+# Phonetic: "SWAG-er" — ASR may hear "swagger"
+Swagger: swagger
+# Phonetic: "PRO-toh-buff" — ASR may hear "proto buff" or "protobuf"
+Protobuf: protobuf, Protocol Buffers, proto buff
+# Phonetic: "THRIFT" — common word
+Thrift: thrift, Apache Thrift
+# Phonetic: "AH-VOH" — ASR may hear "avro"
+Avro: avro, Apache Avro
+# Phonetic: "JAY-son" — ASR hears "Jason" (name)
+JSON: json, J S O N
+# Phonetic: "YAM-ul" — ASR may hear "yam L" or "YAML"
+YAML: yaml, Y A M L
+# Phonetic: "TOE-mul" — ASR may hear "Tom L"
+TOML: toml, T O M L
+# Phonetic: "ECK-sell-EM-ell" — common term
+XML: xml, X M L
+# Phonetic: "SEE-ESS-VEE" — common initials
+CSV: csv, C S V
+# Phonetic: "WEBHOOKS" — clean
+Webhooks: webhook, web hooks
+# Phonetic: "SERVER-sent events" — clean
+SSE: Server-Sent Events, server sent events
+# Phonetic: "HETCH-tee-tee-pee" — ASR may hear "H T T P"
+HTTP: http, H T T P
+# Phonetic: "HETCH-tee-tee-pee-ess" — clean
+HTTPS: https, H T T P S
+# Phonetic: "HETCH-tee-tee-pee-two" — ASR may hear "H T T P 2"
+HTTP/2: http2, HTTP 2
+# Phonetic: "HETCH-three" — newer
+HTTP/3: http3, HTTP 3
+# Phonetic: "WEB-are-tee-see" — ASR may hear "web RTC"
+WebRTC: webrtc, Web RTC
+# Phonetic: "EM-KYOO-tee-tee" — ASR may hear "M Q T T"
+MQTT: mqtt, M Q T T
+# Phonetic: "AM-KYOO-pee" — ASR may hear "A M Q P"
+AMQP: amqp, A M Q P
+# Phonetic: "RABBIT-em-KYOO" — clean
+RabbitMQ: rabbitmq, Rabbit MQ
+# Phonetic: "KAFKA" — ASR hears "Kafka" (literary name)
+Kafka: kafka, Apache Kafka
+# Phonetic: "NATS" — common word
+NATS: nats
+# Phonetic: "ZEE-ro-em-KYOO" — ASR may hear "zero MQ"
+ZeroMQ: zeromq, Zero MQ, 0MQ
+
+
+# =============================================================================
+# 12. COMMON DEV JARGON
+# =============================================================================
+
+# Phonetic: "ree-FAC-tor" — clean
+refactor: refactoring
+# Phonetic: "dee-PLOY" — common word
+deploy: deployment, deploying
+# Phonetic: "SEE-EYE-SEE-DEE" — ASR may hear "C I C D" as separate letters
+CI/CD: CICD, ci cd, C I C D, CI CD
+# Phonetic: "PEE-ARE" — ASR may hear "P R" or "PR" as "per"
+PR: pull request, Pull Request, pull req
+# Phonetic: "MERGE conflict" — clean
+merge conflict: merge conflicts
+# Phonetic: "LINT-ing" — ASR may hear "linting"
+linting: lint, linter
+# Phonetic: "SHIM" — ASR may hear "shim"
+shim: shimming
+# Phonetic: "POLL-ee-fill" — ASR may hear "polyfill"
+polyfill: polyfills
+# Phonetic: "BOILER-plate" — common compound
+boilerplate: boiler plate
+# Phonetic: "SCAFF-old" — common word
+scaffold: scaffolding
+# Phonetic: "HARD-code" — common compound
+hardcode: hard code, hardcoded
+# Phonetic: "SERR-ver-less" — clean
+serverless: server less
+# Phonetic: "MICRO-services" — clean
+microservices: micro services, microservice
+# Phonetic: "MONN-oh-repo" — ASR may hear "mono repo"
+monorepo: mono repo, monorepos
+# Phonetic: "MONN-oh-lith" — common word
+monolith: monolithic
+# Phonetic: "DEV-ops" — ASR may hear "dev ops"
+DevOps: devops, Dev Ops
+# Phonetic: "GIT-ops" — clean
+GitOps: gitops, Git Ops
+# Phonetic: "ML-ops" — ASR may hear "ML ops"
+MLOps: mlops, ML Ops
+# Phonetic: "DOCK-er-ize" — clean
+Dockerize: dockerize, containerize
+# Phonetic: "OR-keh-strate" — common word
+orchestrate: orchestration
+# Phonetic: "KON-tane-er" — common word
+container: containers, containerization
+# Phonetic: "SAND-box" — common word
+sandbox: sandboxing, sandboxed
+# Phonetic: "HOT ree-load" — clean
+hot reload: hot reloading, HMR
+# Phonetic: "TREE-shake" — clean
+tree shaking: tree-shaking, treeshaking
+# Phonetic: "CODE-split" — clean
+code splitting: code-splitting, codesplitting
+# Phonetic: "LAZY load" — clean
+lazy loading: lazy-loading, lazy load
+# Phonetic: "CATCH" — common word (in caching context)
+cache: caching, cached
+# Phonetic: "in-VAL-ih-date" — common word
+invalidate: cache invalidation
+# Phonetic: "THROT-ul" — common word
+throttle: throttling
+# Phonetic: "dee-BOUNCE" — ASR may hear "de bounce"
+debounce: debouncing
+# Phonetic: "MID-ul-ware" — clean
+middleware: middlewares
+# Phonetic: "EN-dee-point" — common word
+endpoint: endpoints
+# Phonetic: "PAY-load" — common word
+payload: payloads
+# Phonetic: "SKEE-muh" — common word
+schema: schemas
+# Phonetic: "my-GRAY-shun" — common word
+migration: migrations
+# Phonetic: "SEED" — common word
+seed: seeding
+# Phonetic: "CRU-D" — ASR may hear "crude"
+CRUD: crud, C R U D
+# Phonetic: "AY-SINK" — common word
+async: asynchronous, async/await
+# Phonetic: "uh-WAIT" — common word
+await: awaiting
+# Phonetic: "CALL-back" — common compound
+callback: callbacks
+# Phonetic: "PROM-iss" — common word
+promise: promises
+# Phonetic: "ob-ZURV-uh-bul" — common word
+observable: observables
+# Phonetic: "STREE-ming" — common word
+streaming: stream
+# Phonetic: "EVENT-driven" — clean
+event-driven: event driven
+# Phonetic: "SAG-uh" — common word (the pattern)
+saga: sagas
+# Phonetic: "SEE-KYOO-EL" or "ESS-KYOO-EL"
+ORM: orm, O R M, Object Relational Mapping
+# Phonetic: "EYE-dee-em-POE-tent" — ASR may hear "I dem potent"
+idempotent: idempotency, idem potent
+# Phonetic: "im-YOO-tuh-bul" — common word
+immutable: immutability
+# Phonetic: "deh-KLAH-ruh-tiv" — common word
+declarative
+# Phonetic: "im-PEAR-uh-tiv" — common word
+imperative
+# Phonetic: "FUNK-shun-ul" — common word
+functional: functional programming, FP
+# Phonetic: "oh-oh-PEE" — ASR may hear "O O P"
+OOP: object-oriented programming, object oriented
+# Phonetic: "dy-NAM-ik TY-ping" — clean
+dynamic typing
+# Phonetic: "STAT-ik TY-ping" — clean
+static typing
+# Phonetic: "TYPE-safe" — clean
+type-safe: type safe, typesafe
+# Phonetic: "NULL-uh-bul" — common word
+nullable: nullability
+# Phonetic: "OPEN-source" — clean
+open source: open-source, OSS
+# Phonetic: "TECH debt" — clean
+tech debt: technical debt
+# Phonetic: "YAG-knee" — ASR may hear "yagni"
+YAGNI: yagni, You Aren't Gonna Need It
+# Phonetic: "DRY" — common word
+DRY: dry, Don't Repeat Yourself
+# Phonetic: "KISS" — common word
+KISS: kiss, Keep It Simple Stupid
+# Phonetic: "SOLID" — common word (design principles)
+SOLID: solid principles
+# Phonetic: "TEE-dee-DEE" — ASR may hear "T D D"
+TDD: tdd, T D D, test-driven development
+# Phonetic: "BEE-dee-DEE" — ASR may hear "B D D"
+BDD: bdd, B D D, behavior-driven development
+
+
+# =============================================================================
+# 13. IDE & EDITOR TERMS
+# =============================================================================
+
+# Phonetic: "VEE-ESS code" — ASR may hear "V S code"
+VS Code: VSCode, vscode, Visual Studio Code, V S Code
+# Phonetic: "NEE-oh-vim" — ASR may hear "neo vim"
+Neovim: neovim, Neo Vim, NVim, nvim
+# Phonetic: "VIM" — common word
+Vim: vim
+# Phonetic: "ee-MAX" — ASR may hear "E max"
+Emacs: emacs, E macs
+# Phonetic: "CUR-sor" — common word
+Cursor: cursor, Cursor IDE, Cursor AI
+# Phonetic: "ZED" — common word
+Zed: zed, Zed Editor
+# Phonetic: "JET-brains" — clean
+JetBrains: Jetbrains, jetbrains
+# Phonetic: "in-TELL-ih-jay" — ASR may hear "IntelliJ"
+IntelliJ: IntelliJ IDEA, intellij
+# Phonetic: "PIE-charm" — ASR may hear "pie charm"
+PyCharm: pycharm, Py Charm
+# Phonetic: "WEB-storm" — clean
+WebStorm: webstorm, Web Storm
+# Phonetic: "AN-droid studio" — clean
+Android Studio: android studio
+# Phonetic: "EX-code" — ASR may hear "X code"
+Xcode: xcode, X Code
+# Phonetic: "VIS-ual STOO-dee-oh" — clean
+Visual Studio: visual studio, VS
+# Phonetic: "sub-LIME" — common word
+Sublime Text: Sublime, sublime
+# Phonetic: "ATOM" — common word (the old editor)
+Atom: atom
+# Phonetic: "COPE-eye-let" — see AI section
+GitHub Copilot: Copilot, copilot
+# Phonetic: "TAB-nine" — ASR may hear "tab 9"
+Tabnine: tabnine, Tab Nine
+# Phonetic: "CODE-ee-um" — ASR may hear "Codeium"
+Codeium: codeium
+# Phonetic: "SUPER-may-ven" — ASR may hear "super maven"
+Supermaven: supermaven, Super Maven
+# Phonetic: "WIND-surf" — common compound
+Windsurf: windsurf, Windsurf Editor
+# Phonetic: "RES-pell" — ASR may hear "re spell"
+Replit: replit, Rep Lit
+# Phonetic: "CODE-spaces" — clean
+Codespaces: GitHub Codespaces, codespaces
+# Phonetic: "GIT-pod" — clean
+Gitpod: gitpod, Git Pod
+# Phonetic: "STACK-blitz" — clean
+StackBlitz: stackblitz, Stack Blitz
+# Phonetic: "CODE-sandbox" — clean
+CodeSandbox: codesandbox, Code Sandbox
+# Phonetic: "ee-ess-lint" — ASR may hear "ES lint"
+ESLint: eslint, ES Lint
+# Phonetic: "PRET-ee-er" — common word
+Prettier: prettier
+# Phonetic: "BY-ohm" — ASR may hear "by ohm" or "biome"
+Biome: biome
+# Phonetic: "OX-lint" — ASR may hear "ox lint"
+oxlint: OxLint, Oxlint
+
+
+# =============================================================================
+# 14. MOBILE DEVELOPMENT
+# =============================================================================
+
+# Phonetic: "ree-AKT native" — clean
+React Native: ReactNative, react native, RN
+# Phonetic: "FLUT-er" — ASR may hear "flutter"
+Flutter: flutter
+# Phonetic: "SWIFT-you-eye" — ASR may hear "Swift UI"
+SwiftUI: swift UI, Swift U I, swiftui
+# Phonetic: "KOT-lin" — ASR may hear "cotton"
+Kotlin: kotlin
+# Phonetic: "EX-poh" — ASR may hear "expo"
+Expo: expo, Expo Go
+# Phonetic: "EX-poh router" — clean
+Expo Router: expo router
+# Phonetic: "CORE data" — clean
+Core Data: CoreData, core data
+# Phonetic: "SWIFT data" — clean
+SwiftData: swift data, Swift Data
+# Phonetic: "KOT-lin multi-PLAT-form" — ASR may hear "cotton multiplatform"
+KMP: Kotlin Multiplatform, kotlin multiplatform, KMM
+# Phonetic: "ZAMM-arin" — ASR may hear "Xamarin"
+Xamarin: xamarin
+# Phonetic: "MAU-ee" — ASR may hear "Maui" (the island)
+MAUI: maui, .NET MAUI
+# Phonetic: "eye-ON-ik" — common word
+Ionic: ionic
+# Phonetic: "kuh-PASS-ih-ter" — common word
+Capacitor: capacitor
+# Phonetic: "TAU-ree" — ASR may hear "Tory" or "tow ree"
+Tauri: tauri
+# Phonetic: "ee-LEK-tron" — common word
+Electron: electron
+# Phonetic: "WEE-ex" — ASR may hear "W X"
+Wails: wails
+# Phonetic: "NAT-iv-SCRIPT" — clean
+NativeScript: nativescript, Native Script
+# Phonetic: "JET-pack compose" — clean
+Jetpack Compose: JetpackCompose, jetpack compose
+# Phonetic: "COCK-oh-uh touch" — ASR may hear "cocoa touch"
+UIKit: uikit, U I Kit
+# Phonetic: "APP-kit" — clean
+AppKit: appkit, App Kit
+# Phonetic: "CORE-animation" — clean
+Core Animation: CoreAnimation
+# Phonetic: "COMBINE" — common word (Apple framework)
+Combine: combine
+# Phonetic: "ARK-it" — ASR may hear "AR kit"
+ARKit: arkit, AR Kit
+# Phonetic: "REAL-ity-kit" — clean
+RealityKit: realitykit, Reality Kit
+# Phonetic: "VISION-oh-ess" — ASR may hear "visionOS"
+visionOS: VisionOS, vision OS
+# Phonetic: "WATCH-oh-ess" — ASR may hear "watch OS"
+watchOS: WatchOS, watch OS
+# Phonetic: "eye-pad-oh-ess" — ASR may hear "iPad OS"
+iPadOS: ipadOS, iPad OS
+# Phonetic: "TEE-vee-oh-ess" — ASR may hear "TV OS"
+tvOS: TvOS, tv OS
+# Phonetic: "FIRE-base" — clean
+Firebase: firebase
+
+
+# =============================================================================
+# 15. CRYPTO / WEB3
+# =============================================================================
+
+# Phonetic: "soh-LID-ih-tee" — ASR may hear "solidity" as common word
+Solidity: solidity
+# Phonetic: "ee-THEER-ee-um" — ASR may hear "ethereum" or "a theorem"
+Ethereum: ethereum, ETH, eth
+# Phonetic: "soh-LAH-nuh" — ASR may hear "Solana" or "so lana"
+Solana: solana, SOL
+# Phonetic: "POLY-gon" — common word
+Polygon: polygon, MATIC, matic
+# Phonetic: "AH-vuh-lanch" — common word
+Avalanche: avalanche, AVAX
+# Phonetic: "HARD-hat" — common compound
+Hardhat: hardhat, Hard Hat
+# Phonetic: "FOWN-dree" — ASR may hear "foundry"
+Foundry: foundry
+# Phonetic: "VY-per" — ASR may hear "viper"
+Vyper: vyper
+# Phonetic: "EE-thers" — ASR may hear "ethers"
+ethers.js: ethersjs, Ethers JS, ethers
+# Phonetic: "WEB-three" — ASR may hear "web 3"
+Web3: web3, Web 3, web three
+# Phonetic: "WEB-three-jay-ess" — clean
+web3.js: web3js
+# Phonetic: "VAG-mee" — ASR may hear "wagmi"
+wagmi: WAGMI
+# Phonetic: "VEE-em" — ASR may hear "V M" or "viem"
+viem: Viem
+# Phonetic: "META-mask" — ASR may hear "meta mask"
+MetaMask: Metamask, metamask, Meta Mask
+# Phonetic: "OPEN-sea" — clean
+OpenSea: opensea, Open Sea
+# Phonetic: "you-knee-swap" — ASR may hear "uni swap"
+Uniswap: uniswap
+# Phonetic: "AH-vee" — ASR may hear "ahvee"
+Aave: aave
+# Phonetic: "DEE-fi" — ASR may hear "defy"
+DeFi: defi, De Fi
+# Phonetic: "EN-eff-tee" — ASR may hear "N F T"
+NFT: nft, N F T
+# Phonetic: "DAH-oh" — ASR may hear "dow"
+DAO: dao, D A O
+# Phonetic: "EYE-PEE-eff-ess" — ASR may hear "I P F S"
+IPFS: ipfs, I P F S
+# Phonetic: "COSMOS" — common word
+Cosmos: cosmos, Cosmos SDK
+# Phonetic: "NEAR" — common word
+NEAR: near, NEAR Protocol
+# Phonetic: "POLKA-dot" — clean
+Polkadot: polkadot, DOT
+# Phonetic: "SUI" — ASR may hear "swee" or "sue"
+Sui: sui
+# Phonetic: "APP-toss" — ASR may hear "aptos"
+Aptos: aptos, APT
+# Phonetic: "MOVE" — common word (the language)
+Move: move language
+
+
+# =============================================================================
+# 16. SECURITY TERMS
+# =============================================================================
+
+# Phonetic: "OH-auth" — covered in API section
+OAuth: OAuth 2.0, OAuth2, oh auth, O Auth
+# Phonetic: "JAW-t" or "JOT" — ASR may hear "jot" or "J W T"
+JWT: jwt, J W T, JSON Web Token, jot
+# Phonetic: "CORS" — ASR may hear "cores" or "course"
+CORS: cors, Cross-Origin Resource Sharing
+# Phonetic: "CROSS-site scripting" — clean
+XSS: xss, X S S, cross-site scripting, cross site scripting
+# Phonetic: "SEE-SURF" or "CSRF" — ASR may hear "C S R F"
+CSRF: csrf, C S R F, cross-site request forgery
+# Phonetic: "ESS-KYOO-ELL injection" — clean
+SQL injection: SQLi, sql injection
+# Phonetic: "ESS-ESS-ELL" — ASR may hear "S S L"
+SSL: ssl, S S L
+# Phonetic: "TEE-ELL-ESS" — ASR may hear "T L S"
+TLS: tls, T L S
+# Phonetic: "SAML" — ASR may hear "Sam L" or "sammel"
+SAML: saml, S A M L
+# Phonetic: "oh-EYE-dee-SEE" — ASR may hear "O I D C"
+OIDC: oidc, OpenID Connect, O I D C
+# Phonetic: "too-EFF-ay" or "TWO factor" — ASR may hear "2 F A"
+2FA: two-factor authentication, two factor, 2 F A
+# Phonetic: "EM-eff-ay" — ASR may hear "M F A"
+MFA: mfa, M F A, multi-factor authentication
+# Phonetic: "ZERO trust" — clean
+zero trust: zero-trust
+# Phonetic: "PEN-test" — clean
+pentest: pen test, penetration testing, pentesting
+# Phonetic: "VUL-ner-ability" — common word
+vulnerability: vulnerabilities, CVE
+# Phonetic: "ESS-ASS-tee" — ASR may hear "S A S T"
+SAST: sast, S A S T, static analysis
+# Phonetic: "DAST" — ASR may hear "dast"
+DAST: dast, D A S T, dynamic analysis
+# Phonetic: "SOH-nar-kube" or "SOH-nar cloud" — clean
+SonarQube: sonarqube, Sonar Qube
+SonarCloud: sonarcloud, Sonar Cloud
+# Phonetic: "SNIKE" — ASR may hear "snick" or "snake"
+Snyk: snyk
+# Phonetic: "TRIVY" — ASR may hear "trivvy" or "trivy"
+Trivy: trivy
+# Phonetic: "HASH-ee-corp vault" — clean
+Vault: vault, HashiCorp Vault
+# Phonetic: "duh-PEND-uh-bot" — ASR may hear "depend a bot"
+Dependabot: dependabot
+# Phonetic: "CODE-KYOO-ELL" — ASR may hear "code Q L"
+CodeQL: codeql, Code QL
+# Phonetic: "OWASP" — ASR may hear "oh wasp"
+OWASP: owasp, O W A S P
+# Phonetic: "KEY-cloak" — ASR may hear "key cloak"
+Keycloak: keycloak, Key Cloak
+# Phonetic: "AUTH-zero" — ASR may hear "auth 0" or "auth zero"
+Auth0: auth0, Auth Zero, auth zero
+# Phonetic: "CLERK" — common word
+Clerk: clerk
+# Phonetic: "NEXT-auth" — clean
+NextAuth: nextauth, Next Auth
+# Phonetic: "AUTH-jay-ess" — ASR may hear "auth JS"
+Auth.js: authjs, Auth JS
+# Phonetic: "LOUISA" — ASR may hear "Lucia"
+Lucia: lucia, Lucia Auth
+# Phonetic: "SUPER-tokens" — clean
+SuperTokens: supertokens, Super Tokens
+# Phonetic: "PASS-key" — common compound
+passkey: passkeys
+# Phonetic: "FIDO-two" — ASR may hear "fido 2"
+FIDO2: fido2, FIDO 2
+WebAuthn: webauthn, Web Authn
+
+
+# =============================================================================
+# 17. MONITORING & OBSERVABILITY
+# =============================================================================
+
+# Phonetic: "DATA-dog" — clean
+Datadog: datadog, Data Dog, DD
+# Phonetic: "gruh-FAH-nuh" — covered in DevOps
+Grafana: grafana
+# Phonetic: "prom-EE-thee-us" — covered in DevOps
+Prometheus: prometheus, prom
+# Phonetic: "SEN-tree" — common word
+Sentry: sentry
+# Phonetic: "NEW relic" — clean
+New Relic: NewRelic, newrelic
+# Phonetic: "DY-nuh-trace" — ASR may hear "dyna trace"
+Dynatrace: dynatrace, Dyna Trace
+# Phonetic: "SPLUNG-k" — ASR may hear "splunk"
+Splunk: splunk
+# Phonetic: "APP-dynamics" — clean
+AppDynamics: appdynamics, App Dynamics
+# Phonetic: "SIGNAL-eff-ecks" — ASR may hear "SignalFX"
+SignalFx: signalfx, Signal FX
+# Phonetic: "HONEY-comb" — common word
+Honeycomb: honeycomb, Honeycomb.io
+# Phonetic: "LIGHT-step" — clean
+Lightstep: lightstep, Light Step
+# Phonetic: "JAY-ger" — ASR may hear "Jaeger" or "yay ger"
+Jaeger: jaeger, Jaeger Tracing
+# Phonetic: "ZIPKIN" — clean
+Zipkin: zipkin
+# Phonetic: "OPEN-telem-eh-tree" — clean
+OpenTelemetry: open telemetry, OTel, otel, OTEL
+# Phonetic: "OH-tell" — short form
+OTel: otel, O Tel
+# Phonetic: "PAGE-er-duty" — ASR may hear "pager duty"
+PagerDuty: pagerduty, Pager Duty
+# Phonetic: "OPS-jee-knee" — ASR may hear "opsgenie"
+Opsgenie: opsgenie, Ops Genie
+# Phonetic: "INKS-dent-dot-eye-oh" — ASR may hear "incident IO"
+incident.io: Incident IO, incident io
+# Phonetic: "STATUS-page" — clean
+Statuspage: statuspage, Status Page
+# Phonetic: "BET-er-up-time" — clean
+Better Uptime: BetterUptime
+# Phonetic: "UP-time robot" — clean
+UptimeRobot: uptimerobot, Uptime Robot
+# Phonetic: "CHECK-lee" — ASR may hear "checkly"
+Checkly: checkly
+# Phonetic: "AX-ee-um" — ASR may hear "axiom"
+Axiom: axiom
+# Phonetic: "BASELIME" — ASR may hear "base lime"
+Baselime: baselime
+
+
+# =============================================================================
+# 18. DESIGN TOOLS
+# =============================================================================
+
+# Phonetic: "FIG-muh" — ASR may hear "figma" or "fig ma"
+Figma: figma
+# Phonetic: "FRAY-mer" — clean
+Framer: framer, Framer Motion
+# Phonetic: "STORY-book" — clean (also testing)
+Storybook: storybook
+# Phonetic: "SKETCH" — common word
+Sketch: sketch
+# Phonetic: "AH-doh-bee" — common brand
+Adobe XD: adobe XD, AdobeXD
+# Phonetic: "IN-vision" — common word
+InVision: invision
+# Phonetic: "ZEP-lin" — ASR may hear "zeppelin"
+Zeplin: zeplin
+# Phonetic: "CAN-vuh" — clean
+Canva: canva
+# Phonetic: "PEN-pot" — clean
+Penpot: penpot, Pen Pot
+# Phonetic: "WHIM-sih-kul" — common word
+Whimsical: whimsical
+# Phonetic: "EX-cah-lee-draw" — ASR may hear "excalidraw"
+Excalidraw: excalidraw
+# Phonetic: "DRAW-dot-eye-oh" — ASR may hear "draw IO"
+draw.io: drawio, Draw IO
+# Phonetic: "MIR-oh" — ASR may hear "mirror"
+Miro: miro
+# Phonetic: "FIGG-jam" — ASR may hear "fig jam"
+FigJam: figjam, Fig Jam
+# Phonetic: "SPLINE" — common word
+Spline: spline, Spline 3D
+# Phonetic: "RIVE" — ASR may hear "rive" or "rye-v"
+Rive: rive
+# Phonetic: "LOT-ee" — ASR may hear "Lottie"
+Lottie: lottie, LottieFiles
+
+
+# =============================================================================
+# 19. INFRASTRUCTURE AS CODE & CONFIG
+# =============================================================================
+
+# Phonetic: "DOT-env" — clean
+dotenv: dot env, .env
+# Phonetic: "DOCKER-file" — clean
+Dockerfile: dockerfile, Docker file
+# Phonetic: "DOCKER compose" — clean
+Docker Compose: docker-compose, docker compose
+# Phonetic: "koo-BER-net-ease config" — clean
+kubectl: kube control, kube CTL, kube C T L
+# Phonetic: "HELM chart" — clean
+Helm chart: helm charts, helmchart
+# Phonetic: "EAR-uh-form" — wait, Terraform was already listed
+# Phonetic: "SEE-dee-KAY" — ASR may hear "C D K"
+CDK: cdk, C D K, AWS CDK, Cloud Development Kit
+# Phonetic: "CROSS-plane" — clean
+Crossplane: crossplane, Cross Plane
+# Phonetic: "OPEN-toh-foo" — ASR may hear "open tofu"
+OpenTofu: opentofu, Open Tofu
+# Phonetic: "TERRA-grunt" — clean
+Terragrunt: terragrunt, Terra Grunt
+# Phonetic: "AT-LAN-tis" — ASR may hear "Atlantis"
+Atlantis: atlantis
+# Phonetic: "SPACE-lift" — clean
+Spacelift: spacelift, Space Lift
+# Phonetic: "ENV-zero" — ASR may hear "env 0"
+env0: Env0, env zero
+
+
+# =============================================================================
+# 20. DEVELOPER PLATFORMS & SERVICES
+# =============================================================================
+
+# Phonetic: "STRIPE" — common word
+Stripe: stripe
+# Phonetic: "TWILL-ee-oh" — ASR may hear "Twilio" as "trill io"
+Twilio: twilio, Twil IO
+# Phonetic: "SEND-grid" — clean
+SendGrid: sendgrid, Send Grid
+# Phonetic: "POST-mark" — clean
+Postmark: postmark
+# Phonetic: "MAIL-gun" — clean
+Mailgun: mailgun, Mail Gun
+# Phonetic: "REEE-send" — ASR may hear "resend"
+Resend: resend, Re Send
+# Phonetic: "ALGO-lee-uh" — ASR may hear "algolia"
+Algolia: algolia
+# Phonetic: "MEELY-search" — ASR may hear "mealy search"
+Meilisearch: meilisearch, Meili Search
+# Phonetic: "TYP-sense" — ASR may hear "type sense"
+Typesense: typesense, Type Sense
+# Phonetic: "CLOUD-ih-nary" — ASR may hear "cloudinary"
+Cloudinary: cloudinary
+# Phonetic: "UPLOAD-thing" — clean
+UploadThing: uploadthing, Upload Thing
+# Phonetic: "IMGIX" — ASR may hear "image ix" or "img ix"
+imgix: Imgix
+# Phonetic: "CLERK" — common word (auth service)
+Clerk: clerk
+# Phonetic: "PLAWS-uh-bul" — common word
+Plausible: plausible, Plausible Analytics
+# Phonetic: "POST-hog" — ASR may hear "post hog"
+PostHog: posthog, Post Hog
+# Phonetic: "AMP-lih-tude" — common word
+Amplitude: amplitude
+# Phonetic: "MIX-panel" — clean
+Mixpanel: mixpanel, Mix Panel
+# Phonetic: "TELEM-eh-tree deck" — clean
+TelemetryDeck: telemetrydeck, Telemetry Deck
+# Phonetic: "LAUNCH-darkly" — clean
+LaunchDarkly: launchdarkly, Launch Darkly
+# Phonetic: "SPLIT" — common word
+Split: split, Split.io
+# Phonetic: "FLAG-smith" — clean
+Flagsmith: flagsmith
+# Phonetic: "UN-leash" — common word
+Unleash: unleash
+# Phonetic: "NEON" — covered in databases
+# Phonetic: "CONVEX" — common word
+Convex: convex
+# Phonetic: "APP-write" — ASR may hear "app right"
+Appwrite: appwrite, App Write
+# Phonetic: "OPEN-replay" — clean
+OpenReplay: openreplay, Open Replay
+# Phonetic: "LOG-rocket" — clean
+LogRocket: logrocket, Log Rocket
+# Phonetic: "FULL-story" — clean
+FullStory: fullstory, Full Story
+
+
+# =============================================================================
+# 21. CSS & STYLING
+# =============================================================================
+
+# Phonetic: "SASS" — ASR may hear "SAS"
+Sass: sass, SCSS, scss
+# Phonetic: "LESS" — common word
+Less: less, LESS CSS
+# Phonetic: "POST-see-ess-ess" — ASR may hear "post CSS"
+PostCSS: postcss, Post CSS
+# Phonetic: "STYLED components" — clean
+styled-components: styled components, SC
+# Phonetic: "ee-MOH-shun" — common word
+Emotion: emotion, Emotion CSS
+# Phonetic: "TAIL-wind" — covered in frontend
+Tailwind CSS: TailwindCSS, Tailwind
+# Phonetic: "VANILLA extract" — clean
+Vanilla Extract: vanilla-extract
+# Phonetic: "PAN-duh-see-ess-ess" — ASR may hear "panda CSS"
+Panda CSS: PandaCSS, panda css
+# Phonetic: "YOU-no-see-ess-ess" — ASR may hear "UNO CSS"
+UnoCSS: unocss, Uno CSS
+# Phonetic: "WIN-dee-see-ess-ess" — ASR may hear "windy CSS"
+WindiCSS: windicss, Windi CSS
+# Phonetic: "OPEN props" — clean
+Open Props: OpenProps, open props
+# Phonetic: "CLSX" — ASR may hear "C L S X"
+clsx: CLSX
+# Phonetic: "CLASS-variance-authority" — long compound
+CVA: cva, class variance authority
+# Phonetic: "SEE-EN" — ASR may hear "C N" (for className utility)
+cn: CN
+# Phonetic: "STITCHES" — common word
+Stitches: stitches
+# Phonetic: "LINARIA" — ASR may hear "lin aria"
+Linaria: linaria
+
+
+# =============================================================================
+# 22. STATE MANAGEMENT & DATA FETCHING
+# =============================================================================
+
+# Phonetic: "REACT query" — covered above
+TanStack Query: React Query, tanstack query
+TanStack Router: tanstack router
+TanStack Table: tanstack table
+# Phonetic: "SWIRR" — ASR may hear "swear" or "S W R"
+SWR: swr, S W R
+# Phonetic: "APOLLO" — common word
+Apollo: Apollo Client, Apollo Server, apollo, Apollo GraphQL
+# Phonetic: "URQL" — ASR may hear "urkel"
+URQL: urql
+# Phonetic: "RELAY" — common word
+Relay: relay
+# Phonetic: "TRPC" — covered in API section
+# Phonetic: "AXIOS" — ASR may hear "ax ee os"
+Axios: axios
+# Phonetic: "KY" — very short, ASR may miss
+ky: Ky
+# Phonetic: "GOT" — common word
+Got: got
+# Phonetic: "NODE-fetch" — clean
+node-fetch: node fetch
+# Phonetic: "OFETCH" — ASR may hear "oh fetch"
+ofetch: Ofetch
+# Phonetic: "SUPER-agent" — clean
+SuperAgent: superagent
+
+
+# =============================================================================
+# 23. RUNTIME & PLATFORMS
+# =============================================================================
+
+# Phonetic: "NODE" — common word
+Node.js: NodeJS, node, node js, Node
+# Phonetic: "DEE-no" — covered above
+Deno: deno
+# Phonetic: "BUN" — common word, covered above
+Bun: bun
+# Phonetic: "CLOUD-flair workers" — covered above
+Cloudflare Workers: CF Workers
+# Phonetic: "EDGE runtime" — clean
+Edge Runtime: edge runtime
+# Phonetic: "WASS-mer" — ASR may hear "wasmer" or "wash mer"
+Wasmer: wasmer
+# Phonetic: "WASS-ih-time" — ASR may hear "was a time"
+Wasmtime: wasmtime
+# Phonetic: "WAZZ-ee" — ASR may hear "was E"
+WASI: wasi, W A S I
+# Phonetic: "ELL-ix-ir" — covered in languages
+# Phonetic: "BEAM" — common word (Erlang VM)
+BEAM: beam, Erlang VM
+# Phonetic: "JAY-VEE-EM" — ASR may hear "J V M"
+JVM: jvm, J V M, Java Virtual Machine
+# Phonetic: "VEE-eight" — ASR may hear "V 8"
+V8: v8, V 8
+# Phonetic: "SPIDER-monkey" — clean
+SpiderMonkey: spidermonkey
+# Phonetic: "JAVA-script-core" — clean
+JavaScriptCore: JSC, jsc
+
+
+# =============================================================================
+# 24. DOCUMENTATION & STATIC SITE GENERATORS
+# =============================================================================
+
+# Phonetic: "DOCK-uh-SORE-us" — ASR may hear "docusaurus"
+Docusaurus: docusaurus
+# Phonetic: "VY-tee-press" — ASR may hear "vitepress"
+VitePress: vitepress, Vite Press
+# Phonetic: "HEW-go" — ASR may hear "Hugo" (name)
+Hugo: hugo
+# Phonetic: "JEK-ull" — ASR may hear "Jekyll" (literary name)
+Jekyll: jekyll
+# Phonetic: "ELEV-en-tee" — ASR may hear "eleventy"
+Eleventy: eleventy, 11ty
+# Phonetic: "MICK-DOX" — ASR may hear "MK docs"
+MkDocs: mkdocs, MK Docs
+# Phonetic: "SPHINX" — common word
+Sphinx: sphinx
+# Phonetic: "READ-the-docs" — clean
+Read the Docs: ReadTheDocs
+# Phonetic: "MINT-lee-fy" — ASR may hear "mint leafy" or "mintlify"
+Mintlify: mintlify
+# Phonetic: "GIT-book" — clean
+GitBook: gitbook, Git Book
+# Phonetic: "STAR-light" — common word
+Starlight: starlight, Astro Starlight
+# Phonetic: "NEXTRA" — ASR may hear "next ra"
+Nextra: nextra
+# Phonetic: "FUMMA-docs" — ASR may hear "fuma docs"
+Fumadocs: fumadocs
+
+
+# =============================================================================
+# 25. AUTHENTICATION & IDENTITY
+# =============================================================================
+
+# Phonetic: "NEXT-auth" — covered in security
+# Phonetic: "PASS-port" — common word
+Passport: passport, PassportJS, passport js
+# Phonetic: "FIRE-base auth" — clean
+Firebase Auth: Firebase Authentication
+# Phonetic: "AWS COG-nee-toe" — covered in cloud
+# Phonetic: "OKTA" — ASR may hear "octa"
+Okta: okta
+# Phonetic: "ONE-login" — clean
+OneLogin: onelogin, One Login
+# Phonetic: "PING identity" — clean
+Ping Identity: PingIdentity
+# Phonetic: "STORE-ee-uh" — ASR may hear "storia"
+Stytch: stytch
+# Phonetic: "PROP-el-auth" — clean
+PropelAuth: propelauth
+
+
+# =============================================================================
+# 26. COMMON TECH BRANDS & PRODUCTS
+# =============================================================================
+
+# Phonetic: "EN-VID-ee-uh" — ASR sometimes hears "in video"
+NVIDIA: Nvidia, nvidia, in video
+# Phonetic: "APPLE" — common word
+Apple: apple
+# Phonetic: "GOO-gul" — common word
+Google: google
+# Phonetic: "MY-cro-soft" — clean
+Microsoft: microsoft
+# Phonetic: "MET-uh" — common word
+Meta: meta, Facebook
+# Phonetic: "AM-uh-zon" — common word
+Amazon: amazon
+# Phonetic: "NET-flicks" — common word
+Netflix: netflix
+# Phonetic: "UBER" — common word
+Uber: uber
+# Phonetic: "AIR-bee-en-bee" — clean
+Airbnb: airbnb
+# Phonetic: "SHOPIFY" — clean
+Shopify: shopify
+# Phonetic: "TWITCH" — common word
+Twitch: twitch
+# Phonetic: "SPOT-ih-fye" — clean
+Spotify: spotify
+# Phonetic: "AN-throw-pik" — ASR may hear "anthropic"
+Anthropic: anthropic
+# Phonetic: "HASH-ee-corp" — covered in DevOps
+# Phonetic: "DOCK-er inc" — covered in DevOps
+# Phonetic: "ELAS-tik" — common word
+Elastic: elastic, Elastic NV
+# Phonetic: "CON-flu-ent" — common word
+Confluent: confluent
+# Phonetic: "DATA-bricks" — ASR may hear "data bricks"
+Databricks: databricks, Data Bricks
+# Phonetic: "SNOW-flake" — common word
+Snowflake: snowflake
+# Phonetic: "MUN-go-dee-bee" — another hearing of MongoDB
+# Phonetic: "ORACLE" — common word
+Oracle: oracle
+# Phonetic: "SAP" — common word
+SAP: sap
+# Phonetic: "SALES-force" — clean
+Salesforce: salesforce, Sales Force
+# Phonetic: "VER-sel" — covered in cloud
+
+
+# =============================================================================
+# 27. COMMON ACRONYMS & ABBREVIATIONS
+# =============================================================================
+
+# Phonetic: "AY-PEE-EYE" — ASR may hear "A P I"
+API: api, A P I
+# Phonetic: "SEE-ELL-EYE" — ASR may hear "C L I"
+CLI: cli, C L I, command line interface
+# Phonetic: "GEE-YOU-EYE" — ASR may hear "G U I"
+GUI: gui, G U I, gooey
+# Phonetic: "ESS-DEE-KAY" — ASR may hear "S D K"
+SDK: sdk, S D K
+# Phonetic: "EYE-DEE-EE" — ASR may hear "I D E"
+IDE: ide, I D E
+# Phonetic: "SEE-DEE-EN" — ASR may hear "C D N"
+CDN: cdn, C D N, Content Delivery Network
+# Phonetic: "DEE-EN-ESS" — ASR may hear "D N S"
+DNS: dns, D N S
+# Phonetic: "ESS-ESS-AYCH" — ASR may hear "S S H"
+SSH: ssh, S S H
+# Phonetic: "EFF-TEE-PEE" — ASR may hear "F T P"
+FTP: ftp, F T P
+# Phonetic: "VEE-PEE-EN" — ASR may hear "V P N"
+VPN: vpn, V P N
+# Phonetic: "ESS-ESS-OH" — ASR may hear "S S O"
+SSO: sso, S S O, Single Sign-On
+# Phonetic: "ESS-ESS-ARE" — ASR may hear "S S R"
+SSR: ssr, S S R, Server-Side Rendering
+# Phonetic: "ESS-ESS-GEE" — ASR may hear "S S G"
+SSG: ssg, S S G, Static Site Generation
+# Phonetic: "EYE-ESS-ARE" — ASR may hear "I S R"
+ISR: isr, I S R, Incremental Static Regeneration
+# Phonetic: "ESS-PEE-AY" — ASR may hear "S P A"
+SPA: spa, S P A, Single Page Application
+# Phonetic: "PEE-DOUBLE-YOO-AY" — ASR may hear "P W A"
+PWA: pwa, P W A, Progressive Web App
+# Phonetic: "ARE-EE-ESS-TEE" — common word but often acronym
+REST: rest, R E S T
+# Phonetic: "SEE-RUH-DEE" — ASR may hear "C R U D"
+CRUD: crud
+# Phonetic: "PEE-EYE" — ASR may hear "P I"
+CI: ci, C I, Continuous Integration
+# Phonetic: "SEE-DEE" — ASR may hear "C D"
+CD: cd, C D, Continuous Deployment
+# Phonetic: "ESS-ELL-AY" — ASR may hear "S L A"
+SLA: sla, S L A, Service Level Agreement
+# Phonetic: "ARE-PEE-SEE" — ASR may hear "R P C"
+RPC: rpc, R P C, Remote Procedure Call
+# Phonetic: "ESS-OH-AY" — ASR may hear "S O A"
+SOA: soa, S O A, Service-Oriented Architecture
+# Phonetic: "EFF-AHS" — ASR may hear "faas"
+FaaS: faas, F A A S, Function as a Service
+# Phonetic: "SAS" — ASR may hear "sass" or "S A A S"
+SaaS: saas, S A A S, Software as a Service
+# Phonetic: "PAS" — ASR may hear "pass"
+PaaS: paas, P A A S, Platform as a Service
+# Phonetic: "IASS" — ASR may hear "I A A S"
+IaaS: iaas, I A A S, Infrastructure as a Service
+# Phonetic: "VEE-EM" — ASR may hear "V M"
+VM: vm, V M, Virtual Machine
+# Phonetic: "VAHT" — ASR may hear "V A T" or "vat"
+VAD: vad, V A D, Voice Activity Detection
+# Phonetic: "AY-ESS-ARE" — ASR may hear "A S R"
+ASR: asr, A S R, Automatic Speech Recognition
+# Phonetic: "TEE-TEE-ESS" — ASR may hear "T T S"
+TTS: tts, T T S, Text to Speech
+# Phonetic: "EN-ELL-PEE" — ASR may hear "N L P"
+NLP: nlp, N L P, Natural Language Processing
+# Phonetic: "SEE-VEE" — ASR may hear "C V"
+CV: cv, C V, Computer Vision
+# Phonetic: "ARE-TEE-EFF" — ASR may hear "R T F"
+RTF: rtf, R T F, Real-Time Factor
+
+
+# =============================================================================
+# 28. SPEECH & AUDIO SPECIFIC (for this product)
+# =============================================================================
+
+# Phonetic: "PARA-keet" — ASR may hear "parakeet" (the bird)
+Parakeet: parakeet, Parakeet TDT
+# Phonetic: "TEE-DEE-TEE" — ASR may hear "T D T"
+TDT: tdt, T D T, Token Duration Transducer
+# Phonetic: "SEE-TEE-SEE" — ASR may hear "C T C"
+CTC: ctc, C T C, Connectionist Temporal Classification
+# Phonetic: "FAST-con-former" — clean
+FastConformer: fast conformer
+# Phonetic: "CONFORMER" — clean
+Conformer: conformer
+# Phonetic: "NEE-moh" — ASR may hear "Nemo" (the fish)
+NeMo: nemo, NVIDIA NeMo
+# Phonetic: "CORE-em-ell" — ASR may hear "core ML"
+CoreML: Core ML, coreml
+# Phonetic: "EMM-EL-ECKS" — ASR may hear "MLX"
+MLX: mlx
+# Phonetic: "SILL-air-oh" — ASR may hear "cilero"
+Silero: silero, Silero VAD
+# Phonetic: "MEL spectrogram" — clean
+MelSpectrogram: mel spectrogram, mel spec
+# Phonetic: "WHIS-per" — common word
+Whisper: whisper
+# Phonetic: "dee-AR-ih-zay-shun" — ASR may hear "diarisation"
+diarization: diarisation, speaker diarization
+# Phonetic: "SEG-men-tay-shun" — common word
+segmentation: audio segmentation
+# Phonetic: "trans-CRIP-shun" — common word
+transcription: transcriptions, transcribe
+# Phonetic: "FLUID audio" — clean
+FluidAudio: Fluid Audio, fluid audio
+# Phonetic: "PIE-ann-note" — ASR may hear "pie annotate"
+pyannote: Pyannote, pyannote
+# Phonetic: "SORT-former" — ASR may hear "sort former"
+Sortformer: sortformer
+# Phonetic: "SPARKLE" — common word (update framework)
+Sparkle: sparkle
+
+
+# =============================================================================
+# 29. NETWORKING & PROTOCOLS
+# =============================================================================
+
+TCP: tcp, T C P
+UDP: udp, U D P
+# Phonetic: "QUIK" — ASR may hear "quick"
+QUIC: quic, Q U I C
+IPv4: ipv4, I P v 4
+IPv6: ipv6, I P v 6
+BGP: bgp, B G P
+# Phonetic: "WIRE-guard" — clean
+WireGuard: wireguard, Wire Guard
+# Phonetic: "OPEN-VPN" — clean
+OpenVPN: openvpn
+# Phonetic: "ZEE-ro-tier" — ASR may hear "zero tier"
+ZeroTier: zerotier, Zero Tier
+# Phonetic: "TAIL-scale" — clean
+Tailscale: tailscale, Tail Scale
+# Phonetic: "CLOUD-flair tunnel" — clean
+Cloudflare Tunnel: CF Tunnel
+# Phonetic: "EN-GROK" — ASR may hear "in grok"
+ngrok: Ngrok, N grok
+
+
+# =============================================================================
+# 30. MISCELLANEOUS DEVELOPER TERMS
+# =============================================================================
+
+# Phonetic: "REGEX" — ASR may hear "reg ex"
+regex: regexp, regular expression, Regex
+# Phonetic: "CRON" — ASR may hear "chrome" or "kron"
+cron: cron job, cronjob, crontab
+# Phonetic: "DEMON" — common word but different meaning
+daemon: demon, background daemon
+# Phonetic: "SIM-link" — ASR may hear "sim link"
+symlink: symbolic link, symlinks
+# Phonetic: "SUDO" — ASR may hear "sue doo" or "pseudo"
+sudo: su do, root
+# Phonetic: "CURL" — common word
+curl: cURL
+# Phonetic: "WEH-get" — ASR may hear "W get"
+wget: W get
+# Phonetic: "ESS-DEE-KAY" — covered in acronyms
+# Phonetic: "SHEBANG" — ASR may hear "she bang"
+shebang: she-bang, hashbang
+# Phonetic: "DOT-files" — clean
+dotfiles: dot files
+# Phonetic: "ZEE-shell" or "ZED-shell" — ASR may hear "Z shell"
+Zsh: zsh, Z shell, Z S H
+# Phonetic: "FISH" — common word (shell)
+Fish: fish, fish shell
+# Phonetic: "TMUX" — ASR may hear "T mux"
+tmux: T mux, T M U X
+# Phonetic: "VIM" — covered above
+# Phonetic: "GIT-ignore" — clean
+.gitignore: gitignore
+# Phonetic: "LINT-staged" — clean
+lint-staged: lint staged
+# Phonetic: "HUSKY" — common word
+Husky: husky
+# Phonetic: "CHANGE-set" — clean
+Changesets: changesets, change sets
+# Phonetic: "SEMANTIC release" — clean
+semantic-release: semantic release
+# Phonetic: "CONVENTION-al commits" — clean
+Conventional Commits: conventional commits
+# Phonetic: "GIT-flow" — clean
+Gitflow: gitflow, Git Flow
+# Phonetic: "TRUNK-based" — clean
+trunk-based development: trunk based
+# Phonetic: "FEATURE flag" — clean
+feature flag: feature flags, feature toggle
+# Phonetic: "CANARY" — common word
+canary: canary deployment, canary release
+# Phonetic: "BLUE-green" — clean
+blue-green deployment: blue green
+# Phonetic: "ROLL-back" — common word
+rollback: roll back
+# Phonetic: "HOT-fix" — clean
+hotfix: hot fix
+# Phonetic: "CHERRY-pick" — clean
+cherry-pick: cherry pick
+# Phonetic: "REE-base" — ASR may hear "re-base" or "rebase"
+rebase: re base, git rebase
+# Phonetic: "SQUASH" — common word
+squash: squash commits
+# Phonetic: "STASH" — common word
+stash: git stash
+
+# =============================================================================
+# CUSTOM NAMES
+# =============================================================================
+
+# Phonetic: "kris-TOO" — ASR often drops the trailing "ou"
+Christou: Christu, christu, Chris too, chris too

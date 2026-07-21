@@ -1,0 +1,22 @@
+# Swift / SwiftPM
+.build/
+.build-*/
+.swiftpm/
+DerivedData/
+*.xcodeproj
+*.xcworkspace
+
+# Native libs (built locally via Scripts/build-*.sh)
+lib/
+Resources/Models/*.bin
+
+# macOS
+.DS_Store
+
+# Analytics keys — real values live here locally, never committed.
+# Build from AnalyticsSecrets.swift.example (see BUILDING.md).
+Sources/App/AnalyticsSecrets.swift
+
+# Local scratch
+tmp/
+build/
