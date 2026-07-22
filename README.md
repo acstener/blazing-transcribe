@@ -13,14 +13,17 @@ Mic → Ring Buffer → Silero VAD → Parakeet TDT (ANE) → Keyboard injection
       16kHz mono    ML endpoint   ~90ms on-device      CGEvent
 ```
 
-1. Microphone captures at 16kHz into an in-memory ring buffer (never hits disk).
+1. Microphone captures at 16kHz into an in-memory ring buffer.
 2. Silero VAD (ML) detects speech start/stop with an adaptive silence timeout.
 3. NVIDIA Parakeet TDT runs speech-to-text entirely on the Apple Neural Engine
    via [FluidAudio](https://github.com/FluidInference/FluidAudio).
 4. Text is injected into the focused app via macOS `CGEvent` keyboard events.
 
 **Your audio never leaves your Mac.** No step in the transcription pipeline makes
-a network call; audio exists only in RAM and is never written to disk.
+a network call — it's 100% on-device. Live capture stays in an in-memory ring
+buffer; longer recordings briefly use a local temp file (deleted right after
+transcribing), and any saved transcription history lives only on your Mac.
+Nothing is ever uploaded.
 
 ## Features
 
