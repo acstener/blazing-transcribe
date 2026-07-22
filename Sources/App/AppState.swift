@@ -178,6 +178,7 @@ extension Notification.Name {
     static let transcriptionPresetDidChange = Notification.Name("transcriptionPresetDidChange")
     static let keepMicReadyDidChange = Notification.Name("keepMicReadyDidChange")
     static let micIdleSleepPreferenceDidChange = Notification.Name("micIdleSleepPreferenceDidChange")
+    static let dockIconPreferenceDidChange = Notification.Name("dockIconPreferenceDidChange")
     static let experimentalEngineDidChange = Notification.Name("experimentalEngineDidChange")
     static let showHistoryTab = Notification.Name("showHistoryTab")
     static let showStatsTab = Notification.Name("showStatsTab")

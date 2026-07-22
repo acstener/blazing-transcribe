@@ -6,6 +6,7 @@ import Overlay
 struct GeneralSettingsView: View {
     @State private var stickyFieldRestore = !UserDefaults.standard.bool(forKey: "stickyFieldRestoreDisabled")
     @State private var itnEnabled = UserDefaults.standard.bool(forKey: "itnEnabled")
+    @State private var showDockIcon = UserDefaults.standard.object(forKey: "showDockIcon") as? Bool ?? true
 
     var body: some View {
         ScrollView {
@@ -31,6 +32,34 @@ struct GeneralSettingsView: View {
 
                     BTCard {
                         OverlayAppearanceSettingsCard()
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: BTSpacing.sm) {
+                    Text("Dock")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(Color.btText)
+
+                    BTCard {
+                        HStack(alignment: .top) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Show icon in Dock")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundStyle(Color.btText)
+                                Text("When off, Blazing Transcribe runs from the menu bar only — no Dock icon. Open this window anytime from the menu bar icon → Show Window.")
+                                    .font(.btCaption)
+                                    .foregroundStyle(Color.btSecondaryText)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            Spacer()
+                            Toggle("", isOn: $showDockIcon)
+                                .labelsHidden()
+                                .toggleStyle(.switch)
+                        }
+                        .onChange(of: showDockIcon) { _, newValue in
+                            UserDefaults.standard.set(newValue, forKey: "showDockIcon")
+                            NotificationCenter.default.post(name: .dockIconPreferenceDidChange, object: nil)
+                        }
                     }
                 }
 

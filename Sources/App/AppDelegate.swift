@@ -1754,6 +1754,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         NotificationCenter.default.addObserver(self, selector: #selector(keepMicReadyDidChange), name: .keepMicReadyDidChange, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(micIdleSleepPreferenceDidChange), name: .micIdleSleepPreferenceDidChange, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(dockIconPreferenceDidChange), name: .dockIconPreferenceDidChange, object: nil)
         // experimentalEngineDidChange observer removed — ExperimentalPrefsViewController was deleted
 
         registerHotkeys()
@@ -3366,8 +3367,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc func showMainWindow() {
         let t = CFAbsoluteTimeGetCurrent()
-        NSApp.setActivationPolicy(.regular)
-        print("[TabPerf] setActivationPolicy(.regular): \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t) * 1000))ms")
+        // In menu-bar-only mode we stay .accessory — the window still shows and
+        // takes focus, it just doesn't add a Dock icon.
+        if userWantsDockIcon {
+            NSApp.setActivationPolicy(.regular)
+        }
         NSApp.activate(ignoringOtherApps: true)
 
         for window in NSApp.windows where window.canBecomeMain {
@@ -3404,14 +3408,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// User preference: show the Dock icon (default), or run menu-bar-only.
+    /// When off, the app stays a background/accessory app and the window is
+    /// opened from the menu bar ("Show Window").
+    private var userWantsDockIcon: Bool {
+        UserDefaults.standard.object(forKey: "showDockIcon") as? Bool ?? true
+    }
+
     private func syncActivationPolicyToWindowVisibility() {
-        let shouldShowDockIcon = NSApp.windows.contains { window in
+        let windowVisible = NSApp.windows.contains { window in
             window.canBecomeMain && (window.isVisible || window.isMiniaturized)
         }
-        let targetPolicy: NSApplication.ActivationPolicy = shouldShowDockIcon ? .regular : .accessory
+        // Menu-bar-only mode (Dock icon off) stays .accessory even with a window open.
+        let targetPolicy: NSApplication.ActivationPolicy = (userWantsDockIcon && windowVisible) ? .regular : .accessory
 
         guard NSApp.activationPolicy() != targetPolicy else { return }
         NSApp.setActivationPolicy(targetPolicy)
+    }
+
+    @objc private func dockIconPreferenceDidChange() {
+        syncActivationPolicyToWindowVisibility()
     }
 
     // MARK: - Helpers

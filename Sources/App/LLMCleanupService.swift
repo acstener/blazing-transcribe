@@ -7,8 +7,11 @@ final class LLMCleanupService {
 
     static let shared = LLMCleanupService()
     static var voiceStyleFeatureOverride: Bool?
+    /// Exposes the custom cleanup-prompt editor ("Voice Style") in the dashboard.
+    /// On by default — the built-in "Default Cleanup" prompt stays selected until
+    /// the user chooses to customize, so default behavior is unchanged.
     static var isVoiceStyleEnabled: Bool {
-        voiceStyleFeatureOverride ?? false
+        voiceStyleFeatureOverride ?? true
     }
 
     // MARK: - Settings (UserDefaults-backed)
