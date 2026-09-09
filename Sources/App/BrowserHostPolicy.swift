@@ -14,6 +14,8 @@ enum BrowserHostPolicy {
         "company.thebrowser.Browser",
         "org.mozilla.firefox",
         "org.mozilla.firefoxdeveloperedition",
+        "org.mozilla.firefoxbeta",
+        "org.mozilla.nightly",
         "com.operasoftware.Opera",
         "com.vivaldi.Vivaldi",
     ]
@@ -29,7 +31,7 @@ enum BrowserHostPolicy {
         "vivaldi",
     ]
 
-    static func prefersDirectRealtimeTyping(bundleIdentifier: String?, appName: String?) -> Bool {
+    static func isBrowser(bundleIdentifier: String?, appName: String?) -> Bool {
         if let bundleID = bundleIdentifier, browserBundleIDs.contains(bundleID) {
             return true
         }
@@ -39,5 +41,9 @@ enum BrowserHostPolicy {
             }
         }
         return false
+    }
+
+    static func prefersDirectRealtimeTyping(bundleIdentifier: String?, appName: String?) -> Bool {
+        isBrowser(bundleIdentifier: bundleIdentifier, appName: appName)
     }
 }
