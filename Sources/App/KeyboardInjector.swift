@@ -14,7 +14,7 @@ final class KeyboardInjector {
 
         // CGEvent supports up to 20 UTF-16 code units per event
         let chunkSize = 20
-        let source = CGEventSource(stateID: .hidSystemState)
+        let source = makeEventSource()
 
         for chunkStart in stride(from: 0, to: utf16.count, by: chunkSize) {
             let chunkEnd = min(chunkStart + chunkSize, utf16.count)
@@ -82,17 +82,13 @@ final class KeyboardInjector {
     /// Send Cmd+V (paste) via CGEvent.
     @discardableResult
     func sendCommandV() -> Bool {
-        let source = CGEventSource(stateID: .hidSystemState)
-        // Virtual key 9 = 'v'
-        guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: true),
-              let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: false) else {
-            return false
-        }
-        keyDown.flags = .maskCommand
-        keyUp.flags = .maskCommand
-        keyDown.post(tap: .cghidEventTap)
-        keyUp.post(tap: .cghidEventTap)
-        return true
+        sendKeyPress(virtualKey: 9, flags: .maskCommand)
+    }
+
+    /// Send Cmd+C (copy) via CGEvent.
+    @discardableResult
+    func sendCommandC() -> Bool {
+        sendKeyPress(virtualKey: 8, flags: .maskCommand)
     }
 
     @discardableResult
@@ -104,17 +100,26 @@ final class KeyboardInjector {
     /// Used for large terminal corrections where backspacing many chars would be slow.
     @discardableResult
     func sendKillLine() -> Bool {
-        let source = CGEventSource(stateID: .hidSystemState)
-        // Virtual key 32 = 'u'
-        guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 32, keyDown: true),
-              let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 32, keyDown: false) else {
-            return false
-        }
-        keyDown.flags = .maskControl
-        keyUp.flags = .maskControl
-        keyDown.post(tap: .cghidEventTap)
-        keyUp.post(tap: .cghidEventTap)
-        return true
+        sendKeyPress(virtualKey: 32, flags: .maskControl)
+    }
+
+    /// Classify the focused AX element for keystroke-safety checks.
+    func focusedElementKind(for pid: pid_t?) -> FocusedElementKind {
+        guard let pid else { return .none }
+        let appElement = AXUIElementCreateApplication(pid)
+        var focusedObject: CFTypeRef?
+        let result = AXUIElementCopyAttributeValue(
+            appElement,
+            kAXFocusedUIElementAttribute as CFString,
+            &focusedObject
+        )
+        guard result == .success, let focusedObject else { return .none }
+        let element = focusedObject as! AXUIElement
+        return KeystrokeInjectionPolicy.classify(
+            role: stringAttribute(kAXRoleAttribute as CFString, for: element),
+            subrole: stringAttribute(kAXSubroleAttribute as CFString, for: element),
+            valueIsSettable: isValueSettable(element)
+        )
     }
 
     /// Whether the app has Accessibility permission.
@@ -278,24 +283,15 @@ final class KeyboardInjector {
     }
 
     private func isEditableTextElement(_ element: AXUIElement) -> Bool {
-        let role = stringAttribute(kAXRoleAttribute as CFString, for: element) ?? ""
-        let subrole = stringAttribute(kAXSubroleAttribute as CFString, for: element) ?? ""
+        let kind = KeystrokeInjectionPolicy.classify(
+            role: stringAttribute(kAXRoleAttribute as CFString, for: element),
+            subrole: stringAttribute(kAXSubroleAttribute as CFString, for: element),
+            valueIsSettable: isValueSettable(element)
+        )
+        return kind == .editableText
+    }
 
-        if subrole == "AXSecureTextField" {
-            return false
-        }
-
-        let supportedRoles: Set<String> = [
-            kAXTextFieldRole as String,
-            kAXTextAreaRole as String,
-            kAXSearchFieldSubrole as String,
-            kAXComboBoxRole as String,
-        ]
-
-        if supportedRoles.contains(role) {
-            return true
-        }
-
+    private func isValueSettable(_ element: AXUIElement) -> Bool {
         var settable = DarwinBoolean(false)
         let status = AXUIElementIsAttributeSettable(element, kAXValueAttribute as CFString, &settable)
         return status == .success && settable.boolValue
@@ -451,18 +447,23 @@ final class KeyboardInjector {
         return true
     }
 
-    private func sendKeyPress(virtualKey: CGKeyCode) -> Bool {
-        let source = CGEventSource(stateID: .hidSystemState)
+    private func sendKeyPress(virtualKey: CGKeyCode, flags: CGEventFlags = []) -> Bool {
+        let source = makeEventSource()
         guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: virtualKey, keyDown: true),
               let keyUp = CGEvent(keyboardEventSource: source, virtualKey: virtualKey, keyDown: false) else {
             return false
         }
 
-        keyDown.flags = []
-        keyUp.flags = []
+        keyDown.flags = flags
+        keyUp.flags = flags
         keyDown.post(tap: .cghidEventTap)
         keyUp.post(tap: .cghidEventTap)
         return true
+    }
+
+    /// Private source state so hardware Command cannot turn a typed "f" into Find.
+    private func makeEventSource() -> CGEventSource? {
+        CGEventSource(stateID: .privateState)
     }
 
     /// Public accessor for shared prefix length (used by terminal shadow cleanup).

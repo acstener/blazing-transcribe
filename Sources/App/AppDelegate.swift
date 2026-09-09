@@ -134,6 +134,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var manualRecordingOriginApp: NSRunningApplication?
     private var manualRecordingOriginElement: AXUIElement?
     private var manualRecordingOriginWindow: AXUIElement?
+    /// Last non-command text actually injected, including the trailing space `deliverText` adds.
+    private var lastDictatedText = ""
     /// Auto-stop timer for toggle recordings (10 min max).
     private var toggleAutoStopWorkItem: DispatchWorkItem?
     /// Warning timer for approaching toggle recording limit (9 min).
@@ -4538,6 +4540,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return true
         }
 
+        if consumeVoiceCommandIfPresent(text) {
+            return true
+        }
+
         if realtimeUsesOverlayOnlyMode {
             scheduleOverlayOnlyFinalCommit(text)
             realtimeDisplayedText = text
@@ -4554,6 +4560,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             switch outcome {
             case .updated, .unchanged:
                 realtimeDisplayedText = text
+                markDictationDelivered(text)
                 appLog("Typed realtime final via owned session: \"\(text)\"")
                 return true
             case .fallback(let reason, let suppressFinalCommit):
@@ -4580,6 +4587,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard delivered else { return false }
             guard prepareTextDeliveryTarget(), keyboardInjector.typeTrailingSpace() else { return false }
             realtimeDisplayedText = text
+            markDictationDelivered(text)
             appLog("Typed realtime final via direct streaming fallback: \"\(text)\"")
             return true
         }
@@ -4602,6 +4610,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     if applied {
                         keyboardInjector.typeTrailingSpace()
                         realtimeDisplayedText = text
+                        markDictationDelivered(text)
                         appLog("Typed realtime final via terminal backspace-rewrite: \"\(text)\" (streamed \(streamedText.count) chars)")
                         return true
                     }
@@ -4610,6 +4619,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 case .clipboardPaste:
                     applyClipboardPasteCorrection(finalText: text)
                     realtimeDisplayedText = text
+                    markDictationDelivered(text)
                     appLog("Typed realtime final via terminal clipboard-paste: \"\(text)\" (streamed \(streamedText.count) chars)")
                     return true
                 case .deferredCleanup:
@@ -4621,6 +4631,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     // get here with divergent text, just accept what's typed — no correction.
                     keyboardInjector.typeTrailingSpace()
                     realtimeDisplayedText = text
+                    markDictationDelivered(text)
                     appLog("Typed realtime final via terminal inline-cleanup (no correction): \"\(text)\" (streamed \(streamedText.count) chars)")
                     return true
                 }
@@ -4638,6 +4649,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             keyboardInjector.typeTrailingSpace()
             realtimeDisplayedText = text
+            markDictationDelivered(text)
             appLog("Typed realtime final via terminal streaming: \"\(text)\" (pre-typed \(realtimeTerminalTypedText.count) chars)")
             return true
         }
@@ -5292,8 +5304,13 @@ extension AppDelegate: TranscriptionDelegate {
             return true
         }
 
+        if consumeVoiceCommandIfPresent(text) {
+            return true
+        }
+
         guard prepareTextDeliveryTarget() else { return false }
         keyboardInjector.typeText(text + " ")
+        markDictationDelivered(text)
         appLog("Typed: \"\(text)\"")
         return true
     }
@@ -5400,7 +5417,66 @@ extension AppDelegate: TranscriptionDelegate {
                 }
             }
         }
+        let frontApp = NSWorkspace.shared.frontmostApplication
+        let focused = keyboardInjector.focusedElementKind(for: frontApp?.processIdentifier)
+        if !KeystrokeInjectionPolicy.shouldInjectKeystrokes(
+            bundleIdentifier: frontApp?.bundleIdentifier,
+            appName: frontApp?.localizedName,
+            focused: focused
+        ) {
+            appLog(
+                "Skipped keystroke injection — browser has no editable field " +
+                "(app=\(frontApp?.bundleIdentifier ?? "unknown") focused=\(focused))"
+            )
+            return false
+        }
         return true
+    }
+
+    private func markDictationDelivered(_ text: String) {
+        lastDictatedText = text + " "
+    }
+
+    @discardableResult
+    private func consumeVoiceCommandIfPresent(_ text: String) -> Bool {
+        guard let command = VoiceCommandParser.parse(text) else { return false }
+
+        let streamed = realtimeTerminalTypedText.isEmpty ? realtimeDisplayedText : realtimeTerminalTypedText
+        if let session = realtimeProvisionalSession, session.typedText,
+           VoiceCommandParser.streamedTextLooksLikeCommand(session.currentText, commandText: text) {
+            _ = keyboardInjector.commitFinalText("", session: session)
+            realtimeProvisionalSession = nil
+            realtimeDisplayedText = ""
+        } else if VoiceCommandParser.streamedTextLooksLikeCommand(streamed, commandText: text) {
+            if prepareTextDeliveryTarget() {
+                _ = keyboardInjector.applyStreamingDelta(from: streamed, to: "")
+            }
+            realtimeDisplayedText = ""
+            realtimeTerminalTypedText = ""
+            realtimeUsingDirectTypingFallback = false
+        }
+
+        executeVoiceCommand(command)
+        appLog("Voice command executed: \(command)")
+        return true
+    }
+
+    private func executeVoiceCommand(_ command: VoiceCommand) {
+        switch VoiceCommandParser.effect(for: command, lastDictatedText: lastDictatedText) {
+        case .deleteCharacters(let count):
+            guard prepareTextDeliveryTarget(), keyboardInjector.deleteBackward(count: count) else { return }
+            lastDictatedText = ""
+        case .copyToClipboard(let copied):
+            clipboardService.copy(copied)
+        case .pressCopy:
+            guard prepareTextDeliveryTarget() else { return }
+            _ = keyboardInjector.sendCommandC()
+        case .pressPaste:
+            guard prepareTextDeliveryTarget() else { return }
+            _ = keyboardInjector.sendCommandV()
+        case .none:
+            break
+        }
     }
 
     private func applyDirectRealtimeDelta(from currentText: String, to newText: String) -> Bool {

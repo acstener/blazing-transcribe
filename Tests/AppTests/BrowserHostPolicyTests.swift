@@ -11,6 +11,24 @@ final class BrowserHostPolicyTests: XCTestCase {
         )
     }
 
+    func testFirefoxIsBrowser() {
+        XCTAssertTrue(
+            BrowserHostPolicy.isBrowser(
+                bundleIdentifier: "org.mozilla.firefox",
+                appName: "Firefox"
+            )
+        )
+    }
+
+    func testFirefoxPrefersDirectRealtimeTyping() {
+        XCTAssertTrue(
+            BrowserHostPolicy.prefersDirectRealtimeTyping(
+                bundleIdentifier: "org.mozilla.firefox",
+                appName: "Firefox"
+            )
+        )
+    }
+
     func testTerminalDoesNotPreferDirectRealtimeTyping() {
         XCTAssertFalse(
             BrowserHostPolicy.prefersDirectRealtimeTyping(

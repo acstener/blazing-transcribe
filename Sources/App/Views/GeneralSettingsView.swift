@@ -160,6 +160,18 @@ struct GeneralSettingsView: View {
 
                             Divider()
 
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Voice Commands")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundStyle(Color.btText)
+                                Text("Say \"delete that\", \"copy that\", or \"paste\" as a complete utterance, like Voice Control. The phrase runs instead of being typed.")
+                                    .font(.btCaption)
+                                    .foregroundStyle(Color.btSecondaryText)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+
+                            Divider()
+
                             HStack(alignment: .top) {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Text Normalization (ITN)")
