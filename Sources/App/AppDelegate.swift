@@ -303,16 +303,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// Keep mic engine running between PTT presses for zero-latency recording.
-    /// When off, the mic only activates while recording (no orange dot between presses, but ~0.7s startup delay).
+    /// Default off so the orange privacy light is not stuck on. Always-on still
+    /// has to capture, so that light will show while listening.
     private var keepMicReady: Bool {
-        !UserDefaults.standard.bool(forKey: "disableKeepMicReady")  // default: true (keep ready)
+        KeepMicReadyPreference.isEnabled()
     }
 
-    /// Manual realtime needs a warm capture path, otherwise fn press pays a cold-mic
-    /// startup penalty and early speech can land before samples are flowing.
     private var shouldKeepCaptureRunningBetweenManualPresses: Bool {
-        let mode = ShortcutConfig.shared.recordingMode
-        return mode == .alwaysOn || keepMicReady || (mode == .manual && selectedTranscriptionPreset.usesRealtimeEngine)
+        KeepMicReadyPreference.shouldKeepCaptureRunning(
+            recordingMode: ShortcutConfig.shared.recordingMode,
+            keepMicReady: keepMicReady
+        )
     }
 
     private var isMicCaptureActive: Bool {

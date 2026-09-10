@@ -10,7 +10,7 @@ struct KeepMicActiveControl: View {
 
     let style: Style
 
-    @AppStorage("disableKeepMicReady") private var disableKeepMicReady = false
+    @AppStorage("disableKeepMicReady") private var disableKeepMicReady = true
     /// 0 = never sleep. Defaults to 15 — sleep-when-idle is on out of the box.
     @AppStorage("micIdleSleepMinutes") private var micIdleSleepMinutes = 15
 
@@ -142,9 +142,9 @@ struct KeepMicActiveControl: View {
 
     private var settingsSubtitle: String {
         if isForcedOnByAlwaysOnMode {
-            return "Always-on mode keeps the microphone active continuously. This switch only affects Manual mode."
+            return "Always-on has to keep the mic open, so macOS shows the orange privacy light. Switch to Manual, or use Toggle Mic, to turn that light off."
         }
-        return "Keeps the microphone warm for zero-latency manual recording. Turn it off to remove the orange dot between presses, at the cost of about 0.7s startup."
+        return "Off by default so the orange privacy light is not stuck on. Turn it on only if you want instant Manual start (~0.7s faster, orange light stays between presses)."
     }
 
     private var idleSleepSubtitle: String {
@@ -152,18 +152,18 @@ struct KeepMicActiveControl: View {
             return "Turn the mic fully off after a period without dictation, clearing the orange indicator until you use it again."
         }
         if isForcedOnByAlwaysOnMode {
-            return "Mic turns off after \(micIdleSleepMinutes) min without dictation. Listening pauses while asleep — press a recording shortcut to wake it."
+            return "Mic turns off after \(micIdleSleepMinutes) min without dictation. The orange light clears while asleep — press a recording shortcut or Toggle Mic to wake it."
         }
         return "Mic turns off after \(micIdleSleepMinutes) min without dictation. Your next recording starts about 0.7s slower, then stays warm again."
     }
 
     private var dashboardSubtitle: String {
         if isForcedOnByAlwaysOnMode {
-            return "Always-on mode already keeps the mic live. Switch to Manual to control standby behavior."
+            return "Always-on keeps the mic live, so the orange privacy light stays on. Switch to Manual or use Toggle Mic to clear it."
         }
         if keepMicReadyEnabled {
-            return "Manual recording starts instantly. The mic indicator stays on between presses."
+            return "Manual recording starts instantly. The orange privacy light stays on between presses."
         }
-        return "Turns the mic fully off between presses. Manual start takes about 0.7s longer."
+        return "Mic is fully off between presses. No orange privacy light until you record."
     }
 }
