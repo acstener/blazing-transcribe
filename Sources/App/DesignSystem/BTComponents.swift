@@ -19,7 +19,7 @@ struct BTCard<Content: View>: View {
                 RoundedRectangle(cornerRadius: BTSpacing.cardCornerRadius)
                     .stroke(Color.btBorder, lineWidth: 1)
             )
-            .shadow(color: .black.opacity(0.03), radius: 4, y: 2)
+            .shadow(color: Color.btCardShadow, radius: 4, y: 2)
     }
 }
 
@@ -57,7 +57,7 @@ struct BTButton: View {
 
     private var foregroundColor: Color {
         switch style {
-        case .primary: return .white
+        case .primary: return .btOnPrimary
         case .secondary: return .btText
         case .destructive: return .white
         }
@@ -65,7 +65,7 @@ struct BTButton: View {
 
     private var backgroundColor: Color {
         switch style {
-        case .primary: return Color.btText
+        case .primary: return Color.btPrimaryFill
         case .secondary: return Color.btActiveBackground
         case .destructive: return .red
         }
@@ -157,15 +157,15 @@ struct BTSidebarItem: View {
 
 extension View {
     func btShadowSubtle() -> some View {
-        shadow(color: .black.opacity(0.03), radius: 4, y: 2)
+        shadow(color: Color.btCardShadow, radius: 4, y: 2)
     }
 
     func btShadowHover() -> some View {
-        shadow(color: .black.opacity(0.06), radius: 8, y: 4)
+        shadow(color: Color.btCardShadow, radius: 8, y: 4)
     }
 
     func btShadowStrong() -> some View {
-        shadow(color: .black.opacity(0.1), radius: 12, y: 6)
+        shadow(color: Color.btCardShadow, radius: 12, y: 6)
     }
 
     func btHideScrollIndicators() -> some View {

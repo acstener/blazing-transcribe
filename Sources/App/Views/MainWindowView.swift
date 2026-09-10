@@ -21,6 +21,11 @@ struct MainWindowView: View {
     @Environment(AppViewModel.self) private var viewModel
     @State private var tabSelection = TabSelection()
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+    @AppStorage(AppearancePreferences.defaultsKey) private var appearanceRaw = AppearancePreferences.system.rawValue
+
+    private var appearance: AppearancePreferences {
+        AppearancePreferences(rawValue: appearanceRaw) ?? .system
+    }
 
     var body: some View {
         Group {
@@ -52,6 +57,8 @@ struct MainWindowView: View {
                 }
             }
         }
+        .btWindowAppearance(appearance.windowAppearanceName)
+        .preferredColorScheme(appearance.preferredColorScheme)
         .task {
             await pollPermissionState()
         }

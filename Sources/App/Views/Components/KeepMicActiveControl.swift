@@ -137,7 +137,7 @@ struct KeepMicActiveControl: View {
             RoundedRectangle(cornerRadius: BTSpacing.cardCornerRadius)
                 .strokeBorder(Color.btBorder, lineWidth: 1)
         )
-        .shadow(color: .black.opacity(0.025), radius: 4, y: 2)
+        .shadow(color: Color.btCardShadow, radius: 4, y: 2)
     }
 
     private var settingsSubtitle: String {
