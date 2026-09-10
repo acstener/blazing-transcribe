@@ -1,7 +1,6 @@
 import Foundation
 
 /// Menu bar glyph and tint for the current mic / engine state.
-/// Orange matches the macOS Control Center microphone privacy indicator.
 enum MenuBarStatusIcon: Equatable {
     case downloading
     case loading
@@ -29,13 +28,10 @@ enum MenuBarStatusIcon: Equatable {
         }
     }
 
-    var usesOrangeMicTint: Bool {
-        switch self {
-        case .recording, .listening, .micActive:
-            return true
-        case .downloading, .loading, .muted, .idleManual, .idleOff:
-            return false
-        }
+    /// Red only while actively recording. Do not tint orange: that copies
+    /// the macOS mic privacy light, which is already annoying on its own.
+    var usesRedRecordingTint: Bool {
+        self == .recording
     }
 
     static func resolve(

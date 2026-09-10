@@ -2,7 +2,7 @@ import XCTest
 @testable import App
 
 final class MenuBarStatusIconTests: XCTestCase {
-    func testListeningUsesWaveformAndOrangeTint() {
+    func testListeningUsesWaveformWithoutRecordingTint() {
         let icon = MenuBarStatusIcon.resolve(
             isEngineLoading: false,
             isDownloading: false,
@@ -15,10 +15,10 @@ final class MenuBarStatusIconTests: XCTestCase {
 
         XCTAssertEqual(icon, .listening)
         XCTAssertEqual(icon.symbolName, "waveform")
-        XCTAssertTrue(icon.usesOrangeMicTint)
+        XCTAssertFalse(icon.usesRedRecordingTint)
     }
 
-    func testRecordingUsesRecordCircleAndOrangeTint() {
+    func testRecordingUsesRecordCircleAndRedTint() {
         let icon = MenuBarStatusIcon.resolve(
             isEngineLoading: false,
             isDownloading: false,
@@ -31,10 +31,10 @@ final class MenuBarStatusIconTests: XCTestCase {
 
         XCTAssertEqual(icon, .recording)
         XCTAssertEqual(icon.symbolName, "record.circle")
-        XCTAssertTrue(icon.usesOrangeMicTint)
+        XCTAssertTrue(icon.usesRedRecordingTint)
     }
 
-    func testWarmMicStandbyUsesOrangeMicIcon() {
+    func testWarmMicStandbyDoesNotTint() {
         let icon = MenuBarStatusIcon.resolve(
             isEngineLoading: false,
             isDownloading: false,
@@ -47,10 +47,10 @@ final class MenuBarStatusIconTests: XCTestCase {
 
         XCTAssertEqual(icon, .micActive)
         XCTAssertEqual(icon.symbolName, "mic.fill")
-        XCTAssertTrue(icon.usesOrangeMicTint)
+        XCTAssertFalse(icon.usesRedRecordingTint)
     }
 
-    func testManualIdleWithoutCaptureHasNoOrangeTint() {
+    func testManualIdleWithoutCaptureHasNoTint() {
         let icon = MenuBarStatusIcon.resolve(
             isEngineLoading: false,
             isDownloading: false,
@@ -63,7 +63,7 @@ final class MenuBarStatusIconTests: XCTestCase {
 
         XCTAssertEqual(icon, .idleManual)
         XCTAssertEqual(icon.symbolName, "mic.fill")
-        XCTAssertFalse(icon.usesOrangeMicTint)
+        XCTAssertFalse(icon.usesRedRecordingTint)
     }
 
     func testMutedTakesPrecedenceOverCapture() {
@@ -79,7 +79,7 @@ final class MenuBarStatusIconTests: XCTestCase {
 
         XCTAssertEqual(icon, .muted)
         XCTAssertEqual(icon.symbolName, "mic.slash")
-        XCTAssertFalse(icon.usesOrangeMicTint)
+        XCTAssertFalse(icon.usesRedRecordingTint)
     }
 
     func testEngineDownloadTakesPrecedence() {
@@ -95,6 +95,6 @@ final class MenuBarStatusIconTests: XCTestCase {
 
         XCTAssertEqual(icon, .downloading)
         XCTAssertEqual(icon.symbolName, "arrow.down.circle")
-        XCTAssertFalse(icon.usesOrangeMicTint)
+        XCTAssertFalse(icon.usesRedRecordingTint)
     }
 }

@@ -3449,8 +3449,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         image?.isTemplate = true
         statusItem.button?.image = image
-        // Orange matches the macOS Control Center microphone indicator while the mic is on.
-        statusItem.button?.contentTintColor = icon.usesOrangeMicTint ? .systemOrange : nil
+        // Red tint only for active recording. Do not copy the orange mic privacy light.
+        statusItem.button?.contentTintColor = icon.usesRedRecordingTint ? .systemRed : nil
     }
 
     private enum RealtimeDiagnosticsLevel {
