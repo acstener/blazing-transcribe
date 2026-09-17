@@ -303,16 +303,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// Keep mic engine running between PTT presses for zero-latency recording.
-    /// When off, the mic only activates while recording (no orange dot between presses, but ~0.7s startup delay).
+    /// Default off so the orange privacy light is not stuck on. Always-on still
+    /// has to capture, so that light will show while listening.
     private var keepMicReady: Bool {
-        !UserDefaults.standard.bool(forKey: "disableKeepMicReady")  // default: true (keep ready)
+        KeepMicReadyPreference.isEnabled()
     }
 
-    /// Manual realtime needs a warm capture path, otherwise fn press pays a cold-mic
-    /// startup penalty and early speech can land before samples are flowing.
     private var shouldKeepCaptureRunningBetweenManualPresses: Bool {
-        let mode = ShortcutConfig.shared.recordingMode
-        return mode == .alwaysOn || keepMicReady || (mode == .manual && selectedTranscriptionPreset.usesRealtimeEngine)
+        KeepMicReadyPreference.shouldKeepCaptureRunning(
+            recordingMode: ShortcutConfig.shared.recordingMode,
+            keepMicReady: keepMicReady
+        )
     }
 
     private var isMicCaptureActive: Bool {
@@ -629,11 +630,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
         if let button = statusItem?.button {
-            let icon = ShortcutConfig.shared.recordingMode == .alwaysOn ? "waveform" : "mic.fill"
-            button.image = NSImage(systemSymbolName: icon, accessibilityDescription: "Transcription")
+            button.image = NSImage(systemSymbolName: "mic.fill", accessibilityDescription: "Transcription")
+            button.image?.isTemplate = true
         }
 
         rebuildMenu()
+        updateMenuBarIcon()
     }
 
     private func applyApplicationIcon() {
@@ -1653,25 +1655,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func ensureLaunchAtLoginDefaultIfNeeded() {
-        guard #available(macOS 13.0, *) else { return }
-
         let defaults = UserDefaults.standard
-        let appliedKey = "launchAtLoginDefaultApplied"
-        let userSetKey = "launchAtLoginUserSet"
-        guard !defaults.bool(forKey: userSetKey),
-              !defaults.bool(forKey: appliedKey) else { return }
+        guard !defaults.bool(forKey: LaunchAtLoginPreferences.userSetKey),
+              !defaults.bool(forKey: LaunchAtLoginPreferences.appliedKey) else { return }
 
         do {
-            if SMAppService.mainApp.status != .enabled {
-                try SMAppService.mainApp.register()
-            }
+            try LaunchAtLoginPreferences.setEnabled(true, markUserSet: false)
         } catch {
             #if DEBUG
             print("[App] Launch at login default failed: \(error)")
             #endif
         }
 
-        defaults.set(true, forKey: appliedKey)
+        defaults.set(true, forKey: LaunchAtLoginPreferences.appliedKey)
     }
 
     private func migrateTranscriptionPresetIfNeeded() {
@@ -2536,6 +2532,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             audioCapture.stop()
         }
+
+        updateMenuBarIcon(
+            listening: appState.currentState == .listening,
+            recording: isManualRecording || isToggleRecording
+        )
     }
 
     func switchRecordingMode(_ mode: RecordingMode) {
@@ -3412,7 +3413,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// When off, the app stays a background/accessory app and the window is
     /// opened from the menu bar ("Show Window").
     private var userWantsDockIcon: Bool {
-        UserDefaults.standard.object(forKey: "showDockIcon") as? Bool ?? true
+        DockVisibilityPolicy.wantsDockIcon()
     }
 
     private func syncActivationPolicyToWindowVisibility() {
@@ -3434,27 +3435,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func updateMenuBarIcon(listening: Bool = false, recording: Bool = false) {
         guard let statusItem else { return }
-        let isManual = ShortcutConfig.shared.recordingMode == .manual
-        let iconName: String
-        if isEngineLoading {
-            iconName = isCurrentEngineDownloadPending ? "arrow.down.circle" : "clock"
-        } else if recording {
-            iconName = "record.circle"
-        } else if listening {
-            iconName = "waveform"
-        } else if isMicMuted {
-            iconName = "mic.slash"
-        } else if isManual {
-            iconName = "mic.fill"
-        } else {
-            iconName = "mic.slash"
-        }
-        statusItem.button?.image = NSImage(
-            systemSymbolName: iconName,
+        let icon = MenuBarStatusIcon.resolve(
+            isEngineLoading: isEngineLoading,
+            isDownloading: isCurrentEngineDownloadPending,
+            isRecording: recording || isManualRecording || isToggleRecording || appState.currentState == .recording,
+            isListening: listening || appState.currentState == .listening,
+            isMicMuted: isMicMuted,
+            isManualMode: ShortcutConfig.shared.recordingMode == .manual,
+            isMicCaptureActive: isMicCaptureActive
+        )
+        let image = NSImage(
+            systemSymbolName: icon.symbolName,
             accessibilityDescription: "Transcription"
         )
-        // Red tint only for active recording — matches macOS screen recording convention
-        statusItem.button?.contentTintColor = recording ? .systemRed : nil
+        image?.isTemplate = true
+        statusItem.button?.image = image
+        // Red tint only for active recording. Do not copy the orange mic privacy light.
+        statusItem.button?.contentTintColor = icon.usesRedRecordingTint ? .systemRed : nil
     }
 
     private enum RealtimeDiagnosticsLevel {
@@ -4682,6 +4679,10 @@ extension AppDelegate: AudioCaptureDelegate {
         if ShortcutConfig.shared.recordingMode == .alwaysOn {
             appState.currentState = .listening
         }
+        updateMenuBarIcon(
+            listening: ShortcutConfig.shared.recordingMode == .alwaysOn,
+            recording: isManualRecording || isToggleRecording
+        )
         if hadAudioFailure {
             hadAudioFailure = false
             appLog("Audio capture recovered after failure")

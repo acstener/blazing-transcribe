@@ -6,7 +6,6 @@ import Overlay
 struct GeneralSettingsView: View {
     @State private var stickyFieldRestore = !UserDefaults.standard.bool(forKey: "stickyFieldRestoreDisabled")
     @State private var itnEnabled = UserDefaults.standard.bool(forKey: "itnEnabled")
-    @State private var showDockIcon = UserDefaults.standard.object(forKey: "showDockIcon") as? Bool ?? true
 
     var body: some View {
         ScrollView {
@@ -26,6 +25,16 @@ struct GeneralSettingsView: View {
                 }
 
                 VStack(alignment: .leading, spacing: BTSpacing.sm) {
+                    Text("Appearance")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(Color.btText)
+
+                    BTCard {
+                        AppAppearanceSettingsCard()
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: BTSpacing.sm) {
                     Text("Overlay")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(Color.btText)
@@ -36,30 +45,12 @@ struct GeneralSettingsView: View {
                 }
 
                 VStack(alignment: .leading, spacing: BTSpacing.sm) {
-                    Text("Dock")
+                    Text("Menu Bar")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(Color.btText)
 
                     BTCard {
-                        HStack(alignment: .top) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Show icon in Dock")
-                                    .font(.system(size: 13, weight: .medium))
-                                    .foregroundStyle(Color.btText)
-                                Text("When off, Blazing Transcribe runs from the menu bar only — no Dock icon. Open this window anytime from the menu bar icon → Show Window.")
-                                    .font(.btCaption)
-                                    .foregroundStyle(Color.btSecondaryText)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                            Spacer()
-                            Toggle("", isOn: $showDockIcon)
-                                .labelsHidden()
-                                .toggleStyle(.switch)
-                        }
-                        .onChange(of: showDockIcon) { _, newValue in
-                            UserDefaults.standard.set(newValue, forKey: "showDockIcon")
-                            NotificationCenter.default.post(name: .dockIconPreferenceDidChange, object: nil)
-                        }
+                        MenuBarPresenceSettingsCard()
                     }
                 }
 
@@ -189,6 +180,123 @@ struct GeneralSettingsView: View {
         .frame(maxWidth: .infinity)
     }
 
+}
+
+private struct MenuBarPresenceSettingsCard: View {
+    @State private var showDockIcon = DockVisibilityPolicy.wantsDockIcon()
+    @State private var openAtLogin = LaunchAtLoginPreferences.isEnabled()
+    @State private var loginError: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: BTSpacing.md) {
+            Text("Toggle Mic (default ⌘⇧M) only works while Blazing Transcribe is running. Close this window and it stays in the menu bar. Open at Login starts it there after restart, with no Dock icon unless you turn that on.")
+                .font(.btCaption)
+                .foregroundStyle(Color.btSecondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Show icon in Dock")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Color.btText)
+                    Text("Off keeps the app in the menu bar only. Open this window from the menu bar icon → Show Window.")
+                        .font(.btCaption)
+                        .foregroundStyle(Color.btSecondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+                Toggle("", isOn: $showDockIcon)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+            }
+            .onChange(of: showDockIcon) { _, newValue in
+                DockVisibilityPolicy.setWantsDockIcon(newValue)
+                NotificationCenter.default.post(name: .dockIconPreferenceDidChange, object: nil)
+            }
+
+            Divider()
+
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Open at Login")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Color.btText)
+                    Text("Starts in the menu bar after you restart, so Toggle Mic works without opening the window first.")
+                        .font(.btCaption)
+                        .foregroundStyle(Color.btSecondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+                Toggle("", isOn: $openAtLogin)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+            }
+            .onChange(of: openAtLogin) { _, newValue in
+                do {
+                    try LaunchAtLoginPreferences.setEnabled(newValue)
+                    loginError = nil
+                    openAtLogin = LaunchAtLoginPreferences.isEnabled()
+                } catch {
+                    loginError = error.localizedDescription
+                    openAtLogin = LaunchAtLoginPreferences.isEnabled()
+                }
+            }
+
+            if let loginError {
+                Text(loginError)
+                    .font(.btCaption)
+                    .foregroundStyle(Color.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+}
+
+private struct AppAppearanceSettingsCard: View {
+    @AppStorage(AppearancePreferences.defaultsKey) private var appearanceRaw = AppearancePreferences.system.rawValue
+
+    private var selectedAppearance: AppearancePreferences {
+        AppearancePreferences(rawValue: appearanceRaw) ?? .system
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: BTSpacing.md) {
+            Text("App window. The recording overlay is unchanged.")
+                .font(.btCaption)
+                .foregroundStyle(Color.btSecondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(spacing: BTSpacing.sm) {
+                ForEach(AppearancePreferences.allCases) { preference in
+                    OverlayAppearanceOption(
+                        icon: iconName(for: preference),
+                        title: preference.title,
+                        subtitle: preference.subtitle,
+                        isSelected: selectedAppearance == preference
+                    ) {
+                        updateAppearance(preference)
+                    }
+                }
+            }
+        }
+    }
+
+    private func updateAppearance(_ preference: AppearancePreferences) {
+        guard selectedAppearance != preference else { return }
+        appearanceRaw = preference.rawValue
+        preference.persist()
+    }
+
+    private func iconName(for preference: AppearancePreferences) -> String {
+        switch preference {
+        case .system:
+            return "circle.lefthalf.filled"
+        case .light:
+            return "sun.max"
+        case .dark:
+            return "moon"
+        }
+    }
 }
 
 private struct OverlayAppearanceSettingsCard: View {

@@ -21,7 +21,7 @@ struct BTHoverEffect: ViewModifier {
             .scaleEffect(isHovered ? 1.02 : 1.0)
             .offset(y: isHovered ? -1 : 0)
             .shadow(
-                color: .black.opacity(isHovered ? 0.08 : 0.03),
+                color: Color.btCardShadow,
                 radius: isHovered ? 8 : 4,
                 y: isHovered ? 4 : 2
             )

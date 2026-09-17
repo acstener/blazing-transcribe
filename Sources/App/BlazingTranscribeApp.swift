@@ -8,9 +8,8 @@ struct BlazingTranscribeApp: App {
         Window("Blazing Transcribe", id: "main") {
             MainWindowView()
                 .environment(appDelegate.viewModel)
-                // Keep the main app window on a fixed light appearance for now.
+                // Appearance is applied on the window contents (system / light / dark).
                 // Avoid NSApp.appearance here: the recording overlay manages its own look.
-                .btWindowAppearance(.aqua)
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 960, height: 680)
