@@ -55,8 +55,11 @@ final class ShortcutConfig {
 
     var recordingMode: RecordingMode {
         get {
-            guard let raw = defaults.string(forKey: recordingModeKey) else { return .alwaysOn }
-            return RecordingMode(rawValue: raw) ?? .alwaysOn
+            // New installs default to Manual (hold-to-talk). Upgraders who never
+            // saved a mode get their de facto Always-on persisted at launch by
+            // FirstLaunchPolicy, so this fallback never changes their behaviour.
+            guard let raw = defaults.string(forKey: recordingModeKey) else { return .manual }
+            return RecordingMode(rawValue: raw) ?? .manual
         }
         set {
             defaults.set(newValue.rawValue, forKey: recordingModeKey)
