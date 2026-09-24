@@ -63,7 +63,9 @@ struct DashboardView: View {
         switch status {
         case .recording: return "Listening to you"
         case .transcribing: return "Finding your words"
-        case .preparing: return "Getting ready"
+        case .preparing: return "Warming up"
+        case .needsAttention where model.isOnlyWaitingForSpeechModel:
+            return model.isModelDownloadRetryScheduled ? "Warming up" : "Speech model didn’t load"
         case .needsAttention: return "Let’s get you set up"
         case .handsFree: return "Ready when you are"
         case .off where model.recordingMode == .alwaysOn: return "Listening is paused"
@@ -74,6 +76,7 @@ struct DashboardView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
+                MissingPermissionBanner()
                 VStack(spacing: 20) {
                     ZStack {
                         Circle().fill(Color.btCardBackground).frame(width: 76, height: 76)
@@ -109,9 +112,12 @@ struct DashboardView: View {
                             .help("Change your dictation shortcut")
                             .accessibilityLabel("Dictation shortcut: \(model.pttShortcutLabel). Change shortcut")
                     }
-                    if status == .needsAttention || status == .preparing {
+                    if (status == .needsAttention || status == .preparing) && model.isOnlyWaitingForSpeechModel {
+                        HomeModelWarmup()
+                    } else if status == .needsAttention || status == .preparing {
                         BTButton("Continue setup") { model.onOpenOnboardingPreview?() }
                     } else {
+                        FirstDictationNudge()
                         Button("Try a dictation") { model.onOpenOnboardingPreview?() }
                             .font(.system(size: 13, weight: .medium))
                             .buttonStyle(.plain).foregroundStyle(Color.btSecondaryText)
@@ -197,7 +203,7 @@ struct DashboardView: View {
                 .help(guidance)
                 .accessibilityElement(children: .contain)
                 .accessibilityHint(guidance)
-                if status == .needsAttention {
+                if status == .needsAttention && !model.isOnlyWaitingForSpeechModel {
                     Text(guidance).font(.btCaption).foregroundStyle(Color.btSecondaryText).padding(.top, 12)
                 }
             }

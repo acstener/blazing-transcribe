@@ -1,7 +1,6 @@
 import AppKit
 import AVFoundation
 import SwiftUI
-import ServiceManagement
 import AudioEngine
 import Transcription
 import FluidAudio
@@ -562,7 +561,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         #endif
 
         loadSavedPreferences()
-        ensureLaunchAtLoginDefaultIfNeeded()
+        // Launch at login is only ever enabled from the visible toggle on the final
+        // onboarding step (LaunchAtLoginService); existing registrations are left as they are.
         setupOverlay()
         setupMenuBar()
         setupWindowVisibilityObservers()
@@ -1596,28 +1596,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         appLog("Text cleanup LLM unavailable for preset=\(selectedTranscriptionPreset.rawValue) — forcing Off")
         applyTextCleanupMode(effectiveMode)
-    }
-
-    private func ensureLaunchAtLoginDefaultIfNeeded() {
-        guard #available(macOS 13.0, *) else { return }
-
-        let defaults = UserDefaults.standard
-        let appliedKey = "launchAtLoginDefaultApplied"
-        let userSetKey = "launchAtLoginUserSet"
-        guard !defaults.bool(forKey: userSetKey),
-              !defaults.bool(forKey: appliedKey) else { return }
-
-        do {
-            if SMAppService.mainApp.status != .enabled {
-                try SMAppService.mainApp.register()
-            }
-        } catch {
-            #if DEBUG
-            print("[App] Launch at login default failed: \(error)")
-            #endif
-        }
-
-        defaults.set(true, forKey: appliedKey)
     }
 
     private func migrateTranscriptionPresetIfNeeded() {
