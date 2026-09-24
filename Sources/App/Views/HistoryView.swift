@@ -4,6 +4,9 @@ struct HistoryView: View {
     @State private var viewModel = TranscriptionHistoryViewModel()
     @State private var hoveredDayGroup: String?
     @State private var hasLoaded = false
+    @State private var isScrolledAway = false
+    @State private var unseenCount = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -51,24 +54,52 @@ struct HistoryView: View {
             .frame(maxWidth: BTSpacing.contentMaxWidth)
 
             // Scrollable entries
-            ScrollView {
-                if viewModel.entries.isEmpty {
-                    emptyState
-                } else {
-                    LazyVStack(alignment: .leading, spacing: BTSpacing.lg) {
-                        ForEach(viewModel.groupedEntries) { group in
-                            daySection(group)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    Color.clear.frame(height: 0).id(Self.topAnchor)
+                    if viewModel.entries.isEmpty {
+                        emptyState
+                    } else {
+                        LazyVStack(alignment: .leading, spacing: BTSpacing.lg) {
+                            ForEach(viewModel.groupedEntries) { group in
+                                daySection(group)
+                            }
                         }
+                        .padding(.horizontal, BTSpacing.lg)
+                        .padding(.top, BTSpacing.sm)
+                        .padding(.bottom, BTSpacing.xl)
                     }
-                    .padding(.horizontal, BTSpacing.lg)
-                    .padding(.top, BTSpacing.sm)
-                    .padding(.bottom, BTSpacing.xl)
-                }
 
-                Spacer(minLength: 0)
-                    .frame(maxWidth: BTSpacing.contentMaxWidth)
+                    Spacer(minLength: 0)
+                        .frame(maxWidth: BTSpacing.contentMaxWidth)
+                }
+                .btHideScrollIndicators()
+                .onScrollGeometryChange(for: Bool.self) { $0.contentOffset.y > 60 } action: { _, away in
+                    isScrolledAway = away
+                    if !away { unseenCount = 0 }
+                }
+                // New dictations arrive at the top; don't yank the reader there — offer a pill instead.
+                .overlay(alignment: .top) {
+                    if unseenCount > 0 {
+                        Button {
+                            withAnimation(reduceMotion ? nil : .btSoft) { proxy.scrollTo(Self.topAnchor, anchor: .top) }
+                            unseenCount = 0
+                        } label: {
+                            Label(unseenCount == 1 ? "1 new dictation" : "\(unseenCount) new dictations", systemImage: "arrow.up")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(Color.btAccentForeground)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(Capsule().fill(Color.btAccent))
+                                .shadow(color: .black.opacity(0.15), radius: 6, y: 2)
+                        }
+                        .buttonStyle(BTButtonStyle())
+                        .padding(.top, BTSpacing.sm)
+                        .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
+                    }
+                }
+                .animation(reduceMotion ? nil : .btSpring, value: unseenCount > 0)
             }
-            .btHideScrollIndicators()
         }
         .frame(maxWidth: .infinity)
         .onAppear {
@@ -88,9 +119,14 @@ struct HistoryView: View {
             print("[TabPerf] HistoryView.onAppear first load: \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t) * 1000))ms (\(viewModel.entries.count) entries)")
         }
         .onReceive(NotificationCenter.default.publisher(for: .transcriptionHistoryDidChange)) { _ in
-            viewModel.loadRecent()
+            let previousIDs = Set(viewModel.entries.map(\.id))
+            withAnimation(reduceMotion ? nil : .btSoft) { viewModel.loadRecent() }
+            let added = viewModel.entries.filter { !previousIDs.contains($0.id) }.count
+            if isScrolledAway, added > 0, viewModel.searchText.isEmpty { unseenCount += added }
         }
     }
+
+    private static let topAnchor = "history-top"
 
     // MARK: - Day Section
 

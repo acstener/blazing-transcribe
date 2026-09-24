@@ -13,6 +13,7 @@ struct HistoryEntryRow: View {
     @State private var isExpanded = false
     @State private var showCopiedTooltip = false
     @State private var isShowingDiff = false
+    @State private var isAddingToDictionary = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Rough character threshold for "long" entries that should be truncated.
@@ -164,6 +165,13 @@ struct HistoryEntryRow: View {
                 }
 
                 Menu {
+                    if entry.succeeded && entry.text.rangeOfCharacter(from: .alphanumerics) != nil {
+                        Button {
+                            isAddingToDictionary = true
+                        } label: {
+                            Label("Add to dictionary…", systemImage: "character.book.closed")
+                        }
+                    }
                     if entry.succeeded {
                         Button(action: onDismiss) {
                             Label("Dismiss", systemImage: "flag")
@@ -196,7 +204,10 @@ struct HistoryEntryRow: View {
                 .menuIndicator(.hidden)
                 .frame(width: 22)
             }
-            .opacity(isHovered ? 1 : 0)
+            .opacity(isHovered || isAddingToDictionary ? 1 : 0)
+            .popover(isPresented: $isAddingToDictionary, arrowEdge: .bottom) {
+                AddToDictionaryPopover(sourceText: entry.text) { isAddingToDictionary = false }
+            }
         }
     }
 
@@ -275,5 +286,75 @@ struct HistoryEntryRow: View {
 
     private var timeString: String {
         Self.timeFormatter.string(from: entry.timestamp).lowercased()
+    }
+}
+
+/// Build a dictionary term by tapping words from a dictation (or typing), then Enter.
+private struct AddToDictionaryPopover: View {
+    let sourceText: String
+    let onDone: () -> Void
+
+    @State private var term = ""
+    @State private var isSaving = false
+    @FocusState private var isFieldFocused: Bool
+
+    private var words: [String] {
+        let tokens = sourceText.split(whereSeparator: \.isWhitespace).map {
+            $0.trimmingCharacters(in: .punctuationCharacters)
+        }
+        return Array(tokens.filter { !$0.isEmpty }.prefix(60))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: BTSpacing.sm) {
+            Text("Add to dictionary")
+                .font(.system(size: 13, weight: .semibold))
+            Text("Tap the words that were misheard, or type the correct spelling.")
+                .font(.btCaption)
+                .foregroundStyle(Color.btSecondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+
+            ScrollView {
+                BTFlowLayout(spacing: 4, rowSpacing: 4) {
+                    ForEach(Array(words.enumerated()), id: \.offset) { _, word in
+                        Button(word) {
+                            term = term.isEmpty ? word : term + " " + word
+                            isFieldFocused = true
+                        }
+                        .buttonStyle(.plain)
+                        .font(.btCaption)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(Capsule().fill(Color.btActiveBackground))
+                    }
+                }
+            }
+            .frame(maxHeight: 110)
+
+            HStack(spacing: BTSpacing.sm) {
+                TextField("Word or name", text: $term)
+                    .textFieldStyle(.roundedBorder)
+                    .focused($isFieldFocused)
+                    .onSubmit(save)
+                BTButton(isSaving ? "Adding…" : "Add") { save() }
+                    .disabled(term.trimmingCharacters(in: .whitespaces).isEmpty || isSaving)
+            }
+        }
+        .padding(BTSpacing.md)
+        .frame(width: 320)
+        .onAppear { isFieldFocused = true }
+    }
+
+    private func save() {
+        let trimmed = term.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !isSaving else { return }
+        isSaving = true
+        Task { @MainActor in
+            let store = CustomVocabularyStore()
+            store.newTermInput = trimmed
+            await store.addTerm()
+            isSaving = false
+            onDone()
+        }
     }
 }
