@@ -30,10 +30,14 @@ struct RecordingSettingsView: View {
 
 struct TextCleanupCard: View {
     @Environment(AppViewModel.self) private var viewModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// The selected-row highlight slides between rows via matchedGeometryEffect.
+    @Namespace private var highlightNamespace
 
     var body: some View {
         @Bindable var viewModel = viewModel
         let llmCleanupAvailable = viewModel.isLLMCleanupAvailable
+        let highlight = CleanupOption.Highlight(namespace: highlightNamespace, slides: !reduceMotion)
         let llmCleanupSubtitle = llmCleanupAvailable
             ? "AI-powered punctuation and formatting"
             : "Unavailable in Turbo realtime"
@@ -51,6 +55,7 @@ struct TextCleanupCard: View {
                         subtitle: "Raw transcription, no cleanup",
                         isSelected: viewModel.textCleanupMode == .off,
                         isEnabled: true,
+                        highlight: highlight,
                         action: {
                             viewModel.onSwitchTextCleanup?(.off)
                         }
@@ -62,6 +67,7 @@ struct TextCleanupCard: View {
                         subtitle: "Remove ums, ahs, and fillers (instant)",
                         isSelected: viewModel.textCleanupMode == .regex,
                         isEnabled: true,
+                        highlight: highlight,
                         action: {
                             viewModel.onSwitchTextCleanup?(.regex)
                         }
@@ -74,6 +80,7 @@ struct TextCleanupCard: View {
                             subtitle: llmCleanupSubtitle,
                             isSelected: viewModel.textCleanupMode == .llm,
                             isEnabled: llmCleanupAvailable,
+                            highlight: highlight,
                             action: {
                                 viewModel.onSwitchTextCleanup?(.llm)
                             }
@@ -90,7 +97,7 @@ struct TextCleanupCard: View {
                             )
                     }
                 }
-
+                .animation(.btSelection(reduceMotion: reduceMotion), value: viewModel.textCleanupMode)
 
                 if llmCleanupAvailable && viewModel.textCleanupMode == .llm {
                     Divider()
@@ -1057,11 +1064,20 @@ private struct SavedVoicePreset: Identifiable, Equatable, Codable {
 // MARK: - Cleanup Option
 
 struct CleanupOption: View {
+    /// Shared highlight for a group of options. With `slides`, the selected
+    /// background moves between rows via matchedGeometryEffect; without it
+    /// (Reduce Motion) the highlight crossfades in place.
+    struct Highlight {
+        let namespace: Namespace.ID
+        let slides: Bool
+    }
+
     let icon: String
     let title: String
     let subtitle: String
     let isSelected: Bool
     let isEnabled: Bool
+    let highlight: Highlight?
     let action: () -> Void
 
     init(
@@ -1070,6 +1086,7 @@ struct CleanupOption: View {
         subtitle: String,
         isSelected: Bool,
         isEnabled: Bool = true,
+        highlight: Highlight? = nil,
         action: @escaping () -> Void
     ) {
         self.icon = icon
@@ -1077,6 +1094,7 @@ struct CleanupOption: View {
         self.subtitle = subtitle
         self.isSelected = isSelected
         self.isEnabled = isEnabled
+        self.highlight = highlight
         self.action = action
     }
 
@@ -1102,16 +1120,28 @@ struct CleanupOption: View {
                 Spacer()
             }
             .padding(BTSpacing.sm)
-            .background(isSelected ? Color.btActiveBackground : Color.clear)
-            .clipShape(RoundedRectangle(cornerRadius: BTSpacing.buttonCornerRadius))
-            .overlay(
-                RoundedRectangle(cornerRadius: BTSpacing.buttonCornerRadius)
-                    .strokeBorder(isSelected ? Color.btAccent.opacity(0.5) : Color.clear, lineWidth: 1)
-            )
+            .background { selectionBackground }
+            .contentShape(RoundedRectangle(cornerRadius: BTSpacing.buttonCornerRadius))
             .opacity(isEnabled ? 1 : 0.5)
         }
         .buttonStyle(.plain)
         .disabled(!isEnabled)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    @ViewBuilder
+    private var selectionBackground: some View {
+        if isSelected {
+            let shape = RoundedRectangle(cornerRadius: BTSpacing.buttonCornerRadius)
+            let fill = shape
+                .fill(Color.btActiveBackground)
+                .overlay(shape.strokeBorder(Color.btAccent.opacity(0.5), lineWidth: 1))
+            if let highlight, highlight.slides {
+                fill.matchedGeometryEffect(id: "cleanupHighlight", in: highlight.namespace)
+            } else {
+                fill.transition(.opacity)
+            }
+        }
     }
 }
 

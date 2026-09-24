@@ -90,6 +90,9 @@ struct AudioSettingsView: View {
                                         UserDefaults.standard.set(newValue, forKey: "silenceTimeout")
                                         viewModel.audioCapture?.silenceTimeout = newValue
                                     }
+                                BTSliderDetentRow(detents: AudioTuningDetents.silenceTimeout,
+                                                  value: $silenceTimeout,
+                                                  format: { String(format: "%.2fs", $0) })
                                 Text("Lower makes always-on end faster. Higher gives you more room for mid-sentence thinking pauses.")
                                     .font(.btCaption)
                                     .foregroundStyle(Color.btSecondaryText)
@@ -111,6 +114,8 @@ struct AudioSettingsView: View {
                                         UserDefaults.standard.set(newValue, forKey: "vadThreshold")
                                         viewModel.audioCapture?.vadThreshold = Float(newValue)
                                     }
+                                BTSliderDetentRow(detents: AudioTuningDetents.voiceDetection,
+                                                  value: $vadThreshold)
                             }
                         }
                     }
@@ -129,6 +134,21 @@ struct AudioSettingsView: View {
             }
         }
     }
+}
+
+/// Named presets for the Advanced tuning sliders.
+enum AudioTuningDetents {
+    static let silenceTimeout: [BTSliderDetent] = [
+        .init(name: "Snappy", value: 0.35),
+        .init(name: "Balanced", value: 0.5),
+        .init(name: "Relaxed", value: 1.0),
+    ]
+
+    static let voiceDetection: [BTSliderDetent] = [
+        .init(name: "Sensitive", value: 0.25),
+        .init(name: "Balanced", value: 0.35),
+        .init(name: "Strict", value: 0.55),
+    ]
 }
 
 private extension AudioSettingsView {

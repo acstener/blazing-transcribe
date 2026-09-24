@@ -2,36 +2,53 @@ import SwiftUI
 
 struct ModeToggleCard: View {
     @Environment(AppViewModel.self) private var viewModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         BTCard {
-            VStack(alignment: .leading, spacing: BTSpacing.md) {
-                // Mode: Always-on / Manual
-                VStack(alignment: .leading, spacing: BTSpacing.sm) {
-                    Text("Mode")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(Color.btSecondaryText)
-                        .textCase(.uppercase)
+            VStack(alignment: .leading, spacing: BTSpacing.sm) {
+                Text("Mode")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color.btSecondaryText)
+                    .textCase(.uppercase)
 
-                    VStack(spacing: 6) {
-                        HStack(spacing: BTSpacing.sm) {
-                            alwaysOnModeOption
-                            manualModeOption
-                        }
-
-                        ModeToggleHint()
-                    }
+                BTSegmentedControl(
+                    segments: [
+                        .init(value: RecordingMode.alwaysOn, title: "Always-on", icon: "waveform"),
+                        .init(value: RecordingMode.manual, title: "Manual", icon: "mic.fill"),
+                    ],
+                    selection: viewModel.recordingMode
+                ) { mode in
+                    viewModel.onSwitchRecordingMode?(mode)
                 }
 
+                // Explains the selected mode; crossfades when the mode changes.
+                ZStack(alignment: .topLeading) {
+                    Text(subtitle(for: viewModel.recordingMode))
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color.btSecondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .id(viewModel.recordingMode)
+                        .transition(.opacity)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .animation(.easeOut(duration: reduceMotion ? 0.12 : 0.18), value: viewModel.recordingMode)
 
+                ModeToggleHint()
+                    .frame(maxWidth: .infinity)
             }
         }
     }
 
-    private var manualModeSubtitle: String {
-        viewModel.transcriptionPreset == .powerUserFastest
-            ? "Hold \(viewModel.pttShortcutLabel) for live dictation"
-            : "Hold \(viewModel.pttShortcutLabel) to record"
+    private func subtitle(for mode: RecordingMode) -> String {
+        switch mode {
+        case .alwaysOn:
+            return "Speak without holding a key. Dictation ends when you pause."
+        case .manual:
+            return viewModel.transcriptionPreset == .powerUserFastest
+                ? "Hold \(viewModel.pttShortcutLabel) for live dictation."
+                : "Hold \(viewModel.pttShortcutLabel) to record, release to transcribe."
+        }
     }
 }
 
@@ -92,29 +109,4 @@ struct ModeOption: View {
         }
         .buttonStyle(.plain)
     }
-}
-
-private extension ModeToggleCard {
-    var alwaysOnModeOption: some View {
-        ModeOption(
-            icon: "waveform",
-            title: "Always-on",
-            subtitle: "Speak without holding a key",
-            isSelected: viewModel.recordingMode == .alwaysOn
-        ) {
-            viewModel.onSwitchRecordingMode?(.alwaysOn)
-        }
-    }
-
-    var manualModeOption: some View {
-        ModeOption(
-            icon: "mic.fill",
-            title: "Manual",
-            subtitle: manualModeSubtitle,
-            isSelected: viewModel.recordingMode == .manual
-        ) {
-            viewModel.onSwitchRecordingMode?(.manual)
-        }
-    }
-
 }
