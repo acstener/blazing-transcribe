@@ -362,18 +362,18 @@ public final class GlobalShortcutMonitor {
         self.toggleShortcut = toggle
     }
 
-    /// Start monitoring. Checks Accessibility permission first.
+    /// Start monitoring. Never prompts for Accessibility: the app asks only after
+    /// the user clicks an explanatory button. Call `start()` again once
+    /// Accessibility is granted so the key-based event tap can install.
     public func start() {
         stop()
 
         let trusted = AXIsProcessTrusted()
+        #if DEBUG
         if !trusted {
-            let options = [kAXTrustedCheckOptionPrompt.takeRetainedValue(): true] as CFDictionary
-            AXIsProcessTrustedWithOptions(options)
-            #if DEBUG
-            print("[GlobalShortcut] Accessibility not granted — prompting user")
-            #endif
+            print("[GlobalShortcut] Accessibility not granted — key-based shortcuts wait for it")
         }
+        #endif
 
         // flagsChanged monitors (global + local) for modifier key detection
         if let m = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged, handler: { [weak self] e in
