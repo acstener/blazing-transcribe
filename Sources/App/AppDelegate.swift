@@ -152,6 +152,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var menuRebuildWorkItem: DispatchWorkItem?
     private let customPromptMenuRebuildDelay: TimeInterval = 0.2
 
+    // MARK: Activation state (G1) — see "Activation (G1)" extension at the end of this file
+    private var firstLaunchResolution: FirstLaunchPolicy.LaunchResolution = .alreadyDecided
+    private lazy var activationTracker = ActivationTracker { name, parameters in
+        trackEvent(name, parameters: parameters)
+    }
+    private var lastKnownAccessibilityGranted: Bool?
+    private var lastKnownMicrophoneStatus: AVAuthorizationStatus?
+    private var permissionWatchTimer: Timer?
+    private var activationObservers: [NSObjectProtocol] = []
+    private var engineLoadStartedAt: Date?
+    private var engineLoadNeededDownload = false
+    private var modelLoadAutoRetryCount = 0
+    private var modelLoadRetryWorkItem: DispatchWorkItem?
+    private var engineStartupFeedbackHideWorkItem: DispatchWorkItem?
+    private var isShowingEngineStartupFeedback = false
+
     private var selectedTranscriptionPreset: TranscriptionPreset {
         guard let rawValue = UserDefaults.standard.string(forKey: "transcriptionPreset"),
               let preset = TranscriptionPreset(rawValue: rawValue) else {
@@ -213,40 +229,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return .standard
     }
 
+    /// Only genuine legacy signals (paid-app trial/license state, real dictation
+    /// history) count — never keys the app writes itself on first launch.
+    /// See `FirstLaunchPolicy`.
     internal static func shouldSkipOnboardingForExistingInstall(
         defaults: UserDefaults,
-        keychainService: String
+        keychainService: String,
+        historyFileURL: URL? = nil
     ) -> Bool {
-        guard defaults.object(forKey: "hasCompletedOnboarding") == nil else { return false }
-
-        let defaultsEvidenceKeys = [
-            "stats.firstUseDate",
-            "stats.totalWords",
-            "stats.totalUtterances",
-            "preferredInputDevice",
-            "silenceTimeout",
-            "vadThreshold",
-            "energyThreshold",
-            "transcriptionPreset",
-            "experimentalMode",
-            "experimentalEngine",
-            "realtimeParakeetFinalizationMode",
-            "realtimeEouShadowCleanupMode",
-            "llmCleanupEnabled",
-            "llmCleanupModel",
-        ]
-
-        if defaultsEvidenceKeys.contains(where: { defaults.object(forKey: $0) != nil }) {
-            return true
-        }
-
-        let keychainEvidenceKeys = [
-            "com.blazing.fast-transcription.instanceId",
-        ]
-
-        return keychainEvidenceKeys.contains {
-            AppKeychainStore.load(key: $0, service: keychainService) != nil
-        }
+        FirstLaunchPolicy.shouldSkipOnboardingForExistingInstall(
+            defaults: defaults,
+            keychainService: keychainService,
+            historyFileURL: historyFileURL
+        )
     }
 
     internal static func shouldAllowRealtimeOverlayPartialDisplay(
@@ -315,7 +310,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// Keep mic engine running between PTT presses for zero-latency recording.
     /// When off, the mic only activates while recording (no orange dot between presses, but ~0.7s startup delay).
     private var keepMicReady: Bool {
-        !UserDefaults.standard.bool(forKey: "disableKeepMicReady")  // default: true (keep ready)
+        !UserDefaults.standard.bool(forKey: "disableKeepMicReady")  // unset = keep ready (upgraders); new installs store disable=true
     }
 
     /// Manual realtime needs a warm capture path, otherwise fn press pays a cold-mic
@@ -627,7 +622,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
             guard let self else { return }
             let mode = ShortcutConfig.shared.recordingMode
-            if mode == .alwaysOn || self.keepMicReady {
+            if (mode == .alwaysOn || self.keepMicReady) && self.canStartBackgroundCapture(for: mode) {
                 self.audioCapture.restart(continuousMode: mode == .alwaysOn)
             }
         }
@@ -946,6 +941,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         additionalParameters: [String: Any] = [:]
     ) -> Int {
         let wordCount = WordCounter.countWords(in: text)
+        // Practice dictations don't count toward stats or analytics (decision 8).
+        if isPracticeDictation { return wordCount }
 
         UsageStats.shared.record(
             wordCount: wordCount,
@@ -1035,6 +1032,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         if shouldRouteTranscriptionToOnboarding {
             viewModel.onboardingTranscriptionResult = finalText
+            notePracticeResult(finalText)
             isTranscriptionInProgress = false
             appState.currentState = .idle
             processNextInQueue()
@@ -1383,6 +1381,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 self.switchTranscriptionPreset(to: previous.1)
                 self.switchRecordingMode(previous.0)
             }
+            // Completing onboarding sets hasCompletedOnboarding right after this
+            // callback; re-apply capture so Always-on users start listening.
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.transcriptionService.isReady,
+                      ShortcutConfig.shared.recordingMode == .alwaysOn,
+                      !self.isManualRecording, !self.isToggleRecording else { return }
+                self.resumeListeningAfterEngineReadyIfNeeded()
+            }
         }
         viewModel.onStartOnboardingRecording = { [weak self] in
             self?.pttDidPress()
@@ -1412,7 +1418,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         viewModel.onReloadEngine = { [weak self] in
             guard let self else { return }
-            self.switchEngine(to: self.activeTranscriptionEngine)
+            // "Retry" on a microphone-permission error re-checks the permission;
+            // reloading the speech model wouldn't fix anything.
+            if self.isMicrophonePermissionErrorActive {
+                self.recheckMicrophonePermission()
+                return
+            }
+            self.retryModelLoadFromUser()
         }
 
         // Observe mode changes (with equality guards to avoid redundant sets)
@@ -1497,18 +1509,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         defaults: UserDefaults = .standard,
         keychainService: String = Constants.bundleIdentifier
     ) {
-        guard Self.shouldSkipOnboardingForExistingInstall(
+        // Runs before any other launch code writes defaults. Always leaves
+        // hasCompletedOnboarding explicitly stored, and applies new-install
+        // defaults (Manual mode, mic off between recordings) — upgraders keep
+        // their stored / de facto settings.
+        let resolution = FirstLaunchPolicy.applyLaunchPolicy(
             defaults: defaults,
-            keychainService: keychainService
-        ) else {
-            return
+            keychainService: keychainService,
+            historyFileURL: FirstLaunchPolicy.defaultHistoryFileURL
+        )
+        firstLaunchResolution = resolution
+        let mode = ShortcutConfig.shared.recordingMode
+        if viewModel.recordingMode != mode {
+            viewModel.recordingMode = mode
         }
-
-        defaults.set(true, forKey: "hasCompletedOnboarding")
-
-        #if DEBUG
-        print("[App] Migration: marked onboarding complete for existing install")
-        #endif
+        appLog("First-launch policy: \(resolution) recordingMode=\(mode.rawValue) keepMicReady=\(keepMicReady)")
     }
 
     internal static func defaultTextCleanupSelection(
@@ -1641,14 +1656,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func startServices() {
-        // Prompt for Accessibility permission on first launch (needed by KeyboardInjector
-        // to type transcribed text in ALL modes, not just manual/PTT)
+        // Never prompt for Accessibility at launch: the system dialog only appears
+        // after the user clicks the explanatory "Grant Access" button in Setup.
         if !KeyboardInjector.hasAccessibilityPermission {
-            appWarn("Accessibility not granted — prompting user")
-            KeyboardInjector.requestAccessibilityPermission()
+            appWarn("Accessibility not granted — waiting for the user to grant it from Setup")
         } else {
             appLog("Accessibility permission granted")
         }
+        setupActivationTracking()
 
         // Load Silero VAD for ML-based speech detection
         if ModelManager.isVADModelDownloaded {
@@ -1679,7 +1694,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let mode = ShortcutConfig.shared.recordingMode
         audioCapture.continuousMode = (mode == .alwaysOn)
         if shouldKeepCaptureRunningBetweenManualPresses
-            && (mode == .manual || transcriptionService.isReady) {
+            && (mode == .manual || transcriptionService.isReady)
+            && canStartBackgroundCapture(for: mode) {
             audioCapture.start()
         }
 
@@ -1878,6 +1894,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func clearTransientOverlayAfterEngineReady() {
+        noteEngineLoadSucceeded()
         guard shouldShowPresetOverlay else { return }
         overlayPanel.show(status: .idle)
     }
@@ -1942,6 +1959,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func beginEngineLoad(for engine: TranscriptionEngineChoice) -> Int {
         engineLoadGeneration += 1
         let generation = engineLoadGeneration
+        noteEngineLoadStarted()
         appLog(
             "Engine load requested generation=\(generation) " +
             "preset=\(selectedTranscriptionPreset.rawValue) engine=\(engine.rawValue)"
@@ -2163,7 +2181,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     self.scheduleMenuRebuild()
                     appError("FluidAudio failed: \(error.localizedDescription)")
                     trackEvent("errorOccurred", parameters: ["source": "engineLoad", "error": error.localizedDescription])
-                    self.appState.currentState = .error("FluidAudio failed: \(error.localizedDescription)")
+                    self.handleEngineLoadFailure(error)
                 }
             }
         }
@@ -2236,7 +2254,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                         "engine": TranscriptionEngineChoice.parakeetRealtimeTdt.rawValue,
                         "error": error.localizedDescription,
                     ])
-                    self.appState.currentState = .error("Realtime Parakeet failed: \(error.localizedDescription)")
+                    self.handleEngineLoadFailure(error)
                 }
             }
         }
@@ -2369,7 +2387,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                         "engine": TranscriptionEngineChoice.parakeetEou.rawValue,
                         "error": error.localizedDescription,
                     ])
-                    self.appState.currentState = .error("Parakeet EOU failed: \(error.localizedDescription)")
+                    self.handleEngineLoadFailure(error)
                 }
             }
         }
@@ -2458,6 +2476,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         audioCapture.setContinuousMode(mode == .alwaysOn)
 
         if mode == .alwaysOn && !transcriptionService.isReady {
+            audioCapture.stop()
+            return
+        }
+
+        // Background (between-press) capture must never be what triggers the
+        // system mic prompt, and never runs hands-free before onboarding is done.
+        guard canStartBackgroundCapture(for: mode) else {
             audioCapture.stop()
             return
         }
@@ -4446,7 +4471,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @discardableResult
     private func commitRealtimeResult(_ result: RealtimeUtteranceResult) -> Bool {
-        commitLiveText(result.text, sessionID: result.sessionID)
+        let isPractice = isPracticeDictation
+        let committed = commitLiveText(result.text, sessionID: result.sessionID)
+        if committed && !isPractice {
+            noteExternalDelivery(wordCount: WordCounter.countWords(in: result.text))
+        }
+        return committed
     }
 
     private var shouldRouteTranscriptionToOnboarding: Bool {
@@ -4465,6 +4495,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if let onboardingText = onboardingDeliveryText(for: text) {
             realtimeDisplayedText = onboardingText
             viewModel.onboardingTranscriptionResult = onboardingText
+            notePracticeResult(onboardingText)
             appLog("Onboarding transcript updated: \"\(onboardingText)\"")
             return true
         }
@@ -4708,7 +4739,11 @@ extension AppDelegate: AudioCaptureDelegate {
                     "detail": underlying.localizedDescription,
                 ])
             case .microphonePermissionDenied:
-                showMicPermissionAlert()
+                viewModel.isMicrophonePermissionError = true
+                // Onboarding already explains the mic row; don't stack a modal on top.
+                if !isOnboardingOrPracticeVisible {
+                    showMicPermissionAlert()
+                }
                 appState.currentState = .error(error.localizedDescription)
             }
         }
@@ -5223,13 +5258,22 @@ extension AppDelegate: TranscriptionDelegate {
     private func deliverText(_ text: String) -> Bool {
         if let onboardingText = onboardingDeliveryText(for: text) {
             viewModel.onboardingTranscriptionResult = onboardingText
+            notePracticeResult(onboardingText)
             appLog("Onboarding transcript updated: \"\(onboardingText)\"")
             return true
         }
 
+        let isPractice = isPracticeDictation
         guard prepareTextDeliveryTarget() else { return false }
+        // Decision 6: nothing to type into -> copy instead of typing into the void.
+        if deliverToClipboardIfNoTextFieldFocused(text) {
+            return true
+        }
         keyboardInjector.typeText(text + " ")
         appLog("Typed: \"\(text)\"")
+        if !isPractice {
+            noteExternalDelivery(wordCount: WordCounter.countWords(in: text))
+        }
         return true
     }
 
@@ -6163,7 +6207,7 @@ extension AppDelegate: GlobalShortcutDelegate {
             print("[App] PTT ignored — engine not ready")
             #endif
             viewModel.noteShortcutRejected()
-            if shouldShowPresetOverlay { overlayPanel.show(status: .error("Engine still loading…")) }
+            showEngineNotReadyFeedback()
             return
         }
 
@@ -6232,7 +6276,7 @@ extension AppDelegate: GlobalShortcutDelegate {
                 print("[App] Toggle ignored — engine not ready")
                 #endif
                 viewModel.noteShortcutRejected()
-                if shouldShowPresetOverlay { overlayPanel.show(status: .error("Engine still loading…")) }
+                showEngineNotReadyFeedback()
                 return
             }
             captureManualRecordingOrigin()
@@ -6413,6 +6457,8 @@ extension AppDelegate: GlobalShortcutDelegate {
         rawText: String? = nil,
         cleanupKind: TranscriptionRecord.CleanupKind? = nil
     ) {
+        // Practice dictations stay out of History (decision 8).
+        guard !isPracticeDictation else { return }
         let id = UUID()
 
         var record = TranscriptionRecord(
@@ -6446,6 +6492,7 @@ extension AppDelegate: GlobalShortcutDelegate {
         source: String,
         request: PendingTranscriptionRequest
     ) {
+        guard !isPracticeDictation else { return }
         let id = UUID()
         let audioFileName = materializeAudioFileNameForFailure(request: request, historyID: id)
 
@@ -6504,5 +6551,398 @@ extension AppDelegate: GlobalShortcutDelegate {
                 historyRetryID: id
             )
         )
+    }
+}
+
+// MARK: - Activation (G1)
+//
+// First-run logic: permission prompts only on explicit clicks, permission-change
+// reactions, speech-model load feedback/retry, practice exclusion, no-field
+// clipboard fallback and privacy-safe activation analytics (no transcript text).
+
+extension AppDelegate {
+    private static let modelLoadMaxAutoRetries = 1
+    private static let modelLoadRetryBaseDelay: TimeInterval = 5
+    private static let permissionWatchInterval: TimeInterval = 2
+    private static let engineStartupFeedbackDuration: TimeInterval = 3
+
+    private var hasCompletedOnboardingFlag: Bool {
+        UserDefaults.standard.bool(forKey: FirstLaunchPolicy.hasCompletedOnboardingKey)
+    }
+
+    /// Onboarding (or the "Continue setup" practice preview) is on screen.
+    private var isOnboardingOrPracticeVisible: Bool {
+        !hasCompletedOnboardingFlag || viewModel.isOnboardingPreviewActive
+    }
+
+    /// Practice dictations don't count toward UsageStats, History or activation analytics.
+    private var isPracticeDictation: Bool {
+        viewModel.isPracticeDictationActive || shouldRouteTranscriptionToOnboarding
+    }
+
+    private var isMicrophonePermissionErrorActive: Bool {
+        guard viewModel.isMicrophonePermissionError else { return false }
+        if case .error = appState.currentState { return true }
+        return false
+    }
+
+    /// Background capture (the mic running between presses) must never be what
+    /// triggers the system mic prompt, and must not run hands-free before onboarding.
+    private func canStartBackgroundCapture(for mode: RecordingMode) -> Bool {
+        if AVCaptureDevice.authorizationStatus(for: .audio) == .notDetermined {
+            return false
+        }
+        if mode == .alwaysOn && isOnboardingOrPracticeVisible {
+            return false
+        }
+        return true
+    }
+
+    // MARK: Setup
+
+    fileprivate func setupActivationTracking() {
+        viewModel.onRequestMicrophonePermission = { [weak self] in
+            self?.requestMicrophonePermissionFromUser()
+        }
+        viewModel.onRequestAccessibilityPermission = { [weak self] in
+            self?.requestAccessibilityPermissionFromUser()
+        }
+        viewModel.onRecheckMicrophonePermission = { [weak self] in
+            self?.recheckMicrophonePermission()
+        }
+        viewModel.onRetryModelDownload = { [weak self] in
+            self?.retryModelLoadFromUser()
+        }
+        viewModel.onPermissionStateRefreshed = { [weak self] in
+            self?.checkPermissionTransitions()
+        }
+
+        let accessibilityGranted = KeyboardInjector.hasAccessibilityPermission
+        let microphoneStatus = AVCaptureDevice.authorizationStatus(for: .audio)
+        lastKnownAccessibilityGranted = accessibilityGranted
+        lastKnownMicrophoneStatus = microphoneStatus
+
+        if firstLaunchResolution == .newInstall {
+            activationTracker.record(.setupStarted, parameters: [
+                "recordingMode": ShortcutConfig.shared.recordingMode.rawValue,
+                "fnAction": FnKeyConflictDetector.currentAction().analyticsLabel,
+            ])
+        }
+        if !hasCompletedOnboardingFlag {
+            // Permissions that were already in place when setup began (e.g. a reinstall).
+            if accessibilityGranted {
+                activationTracker.record(.accessibilityGranted, parameters: ["alreadyGranted": true])
+            }
+            if microphoneStatus == .authorized {
+                activationTracker.record(.microphoneGranted, parameters: ["alreadyGranted": true])
+            }
+        }
+        if firstLaunchResolution == .existingInstall
+            || (hasCompletedOnboardingFlag && UsageStats.shared.totalUtterances > 0) {
+            activationTracker.markExistingInstallActivated()
+        }
+        viewModel.hasCompletedFirstExternalDelivery = activationTracker.hasCompletedFirstExternalDelivery
+        viewModel.refreshFnKeySystemAction()
+
+        activationObservers.append(
+            NotificationCenter.default.addObserver(
+                forName: NSApplication.didBecomeActiveNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.checkPermissionTransitions()
+                self?.viewModel.refreshFnKeySystemAction()
+            }
+        )
+        updatePermissionWatchTimer()
+    }
+
+    // MARK: Permissions
+
+    /// Called from an explicit user click only.
+    private func requestMicrophonePermissionFromUser() {
+        let status = AVCaptureDevice.authorizationStatus(for: .audio)
+        switch status {
+        case .notDetermined:
+            trackEvent("activationPermissionRequested", parameters: ["permission": "microphone"])
+            AVCaptureDevice.requestAccess(for: .audio) { [weak self] _ in
+                DispatchQueue.main.async {
+                    self?.viewModel.refreshPermissionState()
+                    self?.checkPermissionTransitions()
+                }
+            }
+        case .authorized:
+            recheckMicrophonePermission()
+        default:
+            openPrivacySettings(anchor: "Privacy_Microphone")
+        }
+        updatePermissionWatchTimer()
+    }
+
+    /// Called from an explicit user click only.
+    private func requestAccessibilityPermissionFromUser() {
+        guard !KeyboardInjector.hasAccessibilityPermission else {
+            checkPermissionTransitions()
+            return
+        }
+        trackEvent("activationPermissionRequested", parameters: ["permission": "accessibility"])
+        KeyboardInjector.requestAccessibilityPermission()
+        updatePermissionWatchTimer()
+    }
+
+    /// "Retry" for a microphone error: re-check the permission instead of reloading the model.
+    private func recheckMicrophonePermission() {
+        switch AVCaptureDevice.authorizationStatus(for: .audio) {
+        case .authorized:
+            clearMicrophonePermissionError()
+        case .notDetermined:
+            requestMicrophonePermissionFromUser()
+        default:
+            openPrivacySettings(anchor: "Privacy_Microphone")
+        }
+        viewModel.refreshPermissionState()
+    }
+
+    private func openPrivacySettings(anchor: String) {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?\(anchor)") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    private func clearMicrophonePermissionError() {
+        guard viewModel.isMicrophonePermissionError else { return }
+        viewModel.isMicrophonePermissionError = false
+        guard case .error = appState.currentState else { return }
+        appLog("Microphone permission granted — clearing stale permission error")
+        if transcriptionService.isReady {
+            resumeListeningAfterEngineReadyIfNeeded()
+        } else if let modelError = viewModel.modelLoadErrorMessage {
+            appState.currentState = .error(modelError)
+        } else {
+            appState.currentState = .idle
+        }
+    }
+
+    /// Compares live permission state with the last known state and reacts to edges.
+    private func checkPermissionTransitions() {
+        let accessibilityGranted = KeyboardInjector.hasAccessibilityPermission
+        let microphoneStatus = AVCaptureDevice.authorizationStatus(for: .audio)
+        let previousAccessibility = lastKnownAccessibilityGranted
+        let previousMicrophone = lastKnownMicrophoneStatus
+        lastKnownAccessibilityGranted = accessibilityGranted
+        lastKnownMicrophoneStatus = microphoneStatus
+
+        if previousAccessibility == false && accessibilityGranted {
+            handleAccessibilityGranted()
+        }
+
+        if previousMicrophone != microphoneStatus {
+            if microphoneStatus == .authorized {
+                activationTracker.record(.microphoneGranted, parameters: [
+                    "viaSettings": previousMicrophone != .notDetermined,
+                ])
+                clearMicrophonePermissionError()
+                // Background capture waited for the permission; start it now if the mode wants it.
+                if previousMicrophone == .notDetermined, !isManualRecording, !isToggleRecording {
+                    applyAudioCaptureMode(for: ShortcutConfig.shared.recordingMode)
+                }
+            } else if microphoneStatus == .denied && previousMicrophone == .notDetermined {
+                activationTracker.record(.microphoneDenied)
+            }
+        }
+        updatePermissionWatchTimer()
+    }
+
+    private func handleAccessibilityGranted() {
+        appLog("Accessibility granted while running — re-registering shortcuts")
+        activationTracker.record(.accessibilityGranted, parameters: ["alreadyGranted": false])
+        if viewModel.hasStartedServices {
+            // The key-based event tap can only install once the app is trusted.
+            registerHotkeys()
+            registerGlobalShortcuts()
+        }
+        // The user is sitting in System Settings; bring setup back to the front.
+        if isOnboardingOrPracticeVisible {
+            NSApp.activate(ignoringOtherApps: true)
+        }
+    }
+
+    /// Polls while a permission is still missing, so grants made in System Settings
+    /// are noticed even when no onboarding UI is polling.
+    private func updatePermissionWatchTimer() {
+        let needsWatch = !(lastKnownAccessibilityGranted ?? false)
+            || lastKnownMicrophoneStatus != .authorized
+        if needsWatch {
+            guard permissionWatchTimer == nil else { return }
+            let timer = Timer(timeInterval: Self.permissionWatchInterval, repeats: true) { [weak self] _ in
+                self?.checkPermissionTransitions()
+            }
+            timer.tolerance = 0.5
+            RunLoop.main.add(timer, forMode: .common)
+            permissionWatchTimer = timer
+        } else {
+            permissionWatchTimer?.invalidate()
+            permissionWatchTimer = nil
+        }
+    }
+
+    // MARK: Speech model load
+
+    fileprivate func noteEngineLoadStarted() {
+        engineLoadStartedAt = Date()
+        engineLoadNeededDownload = isCurrentEngineDownloadPending
+        modelLoadRetryWorkItem?.cancel()
+        modelLoadRetryWorkItem = nil
+        viewModel.isModelDownloadRetryScheduled = false
+        viewModel.modelLoadErrorMessage = nil
+    }
+
+    fileprivate func noteEngineLoadSucceeded() {
+        viewModel.modelLoadErrorMessage = nil
+        viewModel.isModelDownloadRetryScheduled = false
+        let hadAutoRetry = modelLoadAutoRetryCount > 0
+        modelLoadAutoRetryCount = 0
+
+        if let startedAt = engineLoadStartedAt {
+            engineLoadStartedAt = nil
+            if !hasCompletedOnboardingFlag || engineLoadNeededDownload {
+                activationTracker.record(.modelReady, parameters: [
+                    "durationSeconds": ActivationTracker.rounded(Date().timeIntervalSince(startedAt)),
+                    "neededDownload": engineLoadNeededDownload,
+                    "engine": activeTranscriptionEngine.rawValue,
+                    "afterAutoRetry": hadAutoRetry,
+                ])
+            }
+        }
+
+        if isShowingEngineStartupFeedback {
+            isShowingEngineStartupFeedback = false
+            engineStartupFeedbackHideWorkItem?.cancel()
+            engineStartupFeedbackHideWorkItem = nil
+            if !shouldShowPresetOverlay && !isManualRecording && !isToggleRecording {
+                overlayPanel.show(status: .idle)
+            }
+        }
+    }
+
+    /// Replaces "FluidAudio failed: …" with human copy, and retries once
+    /// automatically (with backoff) when the failure was network-shaped.
+    fileprivate func handleEngineLoadFailure(_ error: Error) {
+        let kind = ModelLoadErrorCopy.kind(of: error)
+        let duration = engineLoadStartedAt.map { Date().timeIntervalSince($0) } ?? 0
+        engineLoadStartedAt = nil
+        let willRetry = ModelLoadErrorCopy.isRetryable(error)
+            && modelLoadAutoRetryCount < Self.modelLoadMaxAutoRetries
+
+        trackEvent("activationModelFailed", parameters: [
+            "errorKind": kind.rawValue,
+            "durationSeconds": ActivationTracker.rounded(duration),
+            "neededDownload": engineLoadNeededDownload,
+            "engine": activeTranscriptionEngine.rawValue,
+            "willAutoRetry": willRetry,
+        ])
+
+        if willRetry {
+            modelLoadAutoRetryCount += 1
+            let delay = Self.modelLoadRetryBaseDelay * pow(2, Double(modelLoadAutoRetryCount - 1))
+            appLog("Speech model load failed (\(kind.rawValue)) — retrying automatically in \(Int(delay))s")
+            viewModel.isModelDownloadRetryScheduled = true
+            viewModel.modelLoadErrorMessage = ModelLoadErrorCopy.retryingMessage
+            appState.currentState = .error(ModelLoadErrorCopy.retryingMessage)
+            let engine = activeTranscriptionEngine
+            let workItem = DispatchWorkItem { [weak self] in
+                guard let self else { return }
+                self.modelLoadRetryWorkItem = nil
+                self.viewModel.isModelDownloadRetryScheduled = false
+                guard !self.transcriptionService.isReady, !self.isEngineLoading,
+                      self.activeTranscriptionEngine == engine else { return }
+                self.switchEngine(to: engine)
+            }
+            modelLoadRetryWorkItem?.cancel()
+            modelLoadRetryWorkItem = workItem
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
+            return
+        }
+
+        let message = ModelLoadErrorCopy.message(for: kind)
+        viewModel.modelLoadErrorMessage = message
+        viewModel.isModelDownloadRetryScheduled = false
+        appState.currentState = .error(message)
+    }
+
+    /// User-initiated retry: fresh auto-retry budget.
+    fileprivate func retryModelLoadFromUser() {
+        modelLoadAutoRetryCount = 0
+        modelLoadRetryWorkItem?.cancel()
+        modelLoadRetryWorkItem = nil
+        viewModel.isModelDownloadRetryScheduled = false
+        switchEngine(to: activeTranscriptionEngine)
+    }
+
+    /// Shortcut pressed before the model is ready: always say why, on every preset.
+    fileprivate func showEngineNotReadyFeedback() {
+        let status: OverlayPanel.Status
+        if isEngineLoading || viewModel.isModelDownloadRetryScheduled {
+            status = currentEngineStartupOverlayStatus
+        } else if viewModel.modelLoadErrorMessage != nil {
+            status = .warning("Speech model isn't ready — open Blazing to retry")
+        } else {
+            status = .warning("Speech model isn't ready yet")
+        }
+        appLog("Shortcut pressed before speech model ready — showing startup feedback")
+        overlayPanel.show(status: status)
+
+        engineStartupFeedbackHideWorkItem?.cancel()
+        engineStartupFeedbackHideWorkItem = nil
+        if case .warning = status {
+            // Warnings auto-hide in the overlay itself.
+            isShowingEngineStartupFeedback = false
+            return
+        }
+        isShowingEngineStartupFeedback = true
+        // The realtime-cleanup preset keeps its persistent startup pill.
+        guard !shouldShowPresetOverlay else { return }
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self, self.isShowingEngineStartupFeedback,
+                  !self.isManualRecording, !self.isToggleRecording else { return }
+            self.isShowingEngineStartupFeedback = false
+            self.overlayPanel.show(status: .idle)
+        }
+        engineStartupFeedbackHideWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.engineStartupFeedbackDuration, execute: workItem)
+    }
+
+    // MARK: Delivery
+
+    fileprivate func notePracticeResult(_ text: String) {
+        let wordCount = WordCounter.countWords(in: text)
+        guard wordCount > 0 else { return }
+        activationTracker.record(.firstPracticeSuccess, parameters: ["wordCount": wordCount])
+    }
+
+    fileprivate func noteExternalDelivery(wordCount: Int) {
+        guard wordCount > 0, !activationTracker.hasCompletedFirstExternalDelivery else { return }
+        activationTracker.record(.firstExternalDelivery, parameters: [
+            "wordCount": wordCount,
+            "recordingMode": ShortcutConfig.shared.recordingMode.rawValue,
+            "transcriptionPreset": selectedTranscriptionPreset.rawValue,
+            "completedOnboarding": hasCompletedOnboardingFlag,
+        ])
+        viewModel.hasCompletedFirstExternalDelivery = true
+    }
+
+    /// Decision 6: when the target app clearly has no focused text field, copy the
+    /// text to the clipboard and say so in the pill. History already has the record.
+    /// Returns true when the text was handled this way.
+    fileprivate func deliverToClipboardIfNoTextFieldFocused(_ text: String) -> Bool {
+        let target = keyboardInjector.focusedTextTarget(in: NSWorkspace.shared.frontmostApplication)
+        guard target == .noTextField else { return false }
+        clipboardService.copy(text)
+        overlayPanel.show(status: .warning(TextDeliveryPolicy.noTextFieldClipboardMessage))
+        appLog("No focused text field — copied transcript to clipboard instead of typing")
+        trackEvent("deliveryCopiedNoTextField", parameters: [
+            "wordCount": WordCounter.countWords(in: text),
+        ])
+        return true
     }
 }

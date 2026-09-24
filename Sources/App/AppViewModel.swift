@@ -105,6 +105,60 @@ final class AppViewModel {
     /// Whether the onboarding text field is focused (controls transcription routing)
     var isOnboardingTextFieldFocused: Bool = false
 
+    // MARK: - Activation (G1: first-run logic; UI lands in G2)
+
+    /// Persisted: the user has dictated into another app at least once.
+    /// Existing installs with real usage are treated as already activated.
+    var hasCompletedFirstExternalDelivery: Bool = UserDefaults.standard.bool(
+        forKey: ActivationTracker.hasCompletedFirstExternalDeliveryKey
+    )
+    /// What macOS does on fn / Globe press (refreshed on app activation and permission polls).
+    var fnKeySystemAction: FnKeySystemAction = FnKeyConflictDetector.currentAction()
+    /// True when the push-to-talk shortcut is fn alone and macOS also acts on fn
+    /// (Emoji & Symbols, Dictation, Input Source, or the unchanged system default).
+    var isFnShortcutConflicting: Bool {
+        FnKeyConflictDetector.isConflicting(
+            action: fnKeySystemAction,
+            pttShortcut: ShortcutConfig.shared.pttShortcut
+        )
+    }
+    /// Set by the practice UI while the practice box is live. Dictations completed
+    /// while this is true (or routed into the practice box) don't count toward
+    /// UsageStats, History or activation analytics.
+    var isPracticeDictationActive: Bool = false
+    /// Model download progress, 0...1, or nil when not downloading / unknown
+    /// (indeterminate). Same source as `currentEngineDownloadProgress`.
+    var modelDownloadFraction: Double? {
+        guard isCurrentEngineDownloadPending, let progress = currentEngineDownloadProgress else { return nil }
+        return min(max(progress, 0), 1)
+    }
+    /// Human-readable model download/load error, nil when there is none.
+    var modelLoadErrorMessage: String?
+    /// True while an automatic retry of a failed model download is pending.
+    var isModelDownloadRetryScheduled: Bool = false
+    /// True when `appState` is `.error` because the microphone permission was denied
+    /// (so the UI can offer "Open System Settings" instead of reloading the model).
+    var isMicrophonePermissionError: Bool = false
+
+    /// Ask for microphone access (system prompt if undetermined, otherwise opens
+    /// System Settings). Call only from an explicit user click.
+    var onRequestMicrophonePermission: (() -> Void)?
+    /// Ask for Accessibility access (system prompt / Settings). Call only from an explicit user click.
+    var onRequestAccessibilityPermission: (() -> Void)?
+    /// Re-check the microphone permission and clear a stale mic error if now granted.
+    var onRecheckMicrophonePermission: (() -> Void)?
+    /// Retry the speech-model download/load (user-initiated; resets the auto-retry budget).
+    var onRetryModelDownload: (() -> Void)?
+    /// Internal: AppDelegate reacts to permission changes seen by `refreshPermissionState()`.
+    var onPermissionStateRefreshed: (() -> Void)?
+
+    func refreshFnKeySystemAction() {
+        let action = FnKeyConflictDetector.currentAction()
+        if fnKeySystemAction != action {
+            fnKeySystemAction = action
+        }
+    }
+
     // MARK: - Service References (read-only for views)
 
     private(set) var audioCapture: AudioCaptureService?
@@ -164,5 +218,6 @@ final class AppViewModel {
         if isMicrophoneGranted != microphoneGranted {
             isMicrophoneGranted = microphoneGranted
         }
+        onPermissionStateRefreshed?()
     }
 }

@@ -128,6 +128,69 @@ final class KeyboardInjector {
         AXIsProcessTrustedWithOptions(options)
     }
 
+    private static var electronAppCache: [String: Bool] = [:]
+
+    /// Whether `app` is an Electron app (their AX trees are unreliable unless enabled).
+    static func isElectronApp(_ app: NSRunningApplication) -> Bool {
+        guard let bundleURL = app.bundleURL else { return false }
+        let cacheKey = app.bundleIdentifier ?? bundleURL.path
+        if let cached = electronAppCache[cacheKey] { return cached }
+        let frameworkURL = bundleURL
+            .appendingPathComponent("Contents/Frameworks/Electron Framework.framework")
+        let isElectron = FileManager.default.fileExists(atPath: frameworkURL.path)
+        electronAppCache[cacheKey] = isElectron
+        return isElectron
+    }
+
+    /// Whether the given app currently has somewhere to type. Conservative: returns
+    /// `.noTextField` only when a native app with a dependable AX tree says so.
+    func focusedTextTarget(in app: NSRunningApplication?) -> TextDeliveryPolicy.FocusedTextTarget {
+        guard let app else { return .unknown }
+        guard TextDeliveryPolicy.canTrustNoTextFieldSignal(
+            bundleIdentifier: app.bundleIdentifier,
+            appName: app.localizedName,
+            isElectronApp: Self.isElectronApp(app)
+        ) else {
+            return .unknown
+        }
+
+        let appElement = AXUIElementCreateApplication(app.processIdentifier)
+        var focusedObject: CFTypeRef?
+        let result = AXUIElementCopyAttributeValue(
+            appElement,
+            kAXFocusedUIElementAttribute as CFString,
+            &focusedObject
+        )
+        switch result {
+        case .success:
+            break
+        case .noValue:
+            return TextDeliveryPolicy.classifyFocusedElement(
+                role: nil,
+                subrole: nil,
+                isValueSettable: false,
+                hasSelectedTextRange: false,
+                bundleIdentifier: app.bundleIdentifier
+            )
+        default:
+            return .unknown
+        }
+        guard let focusedObject, CFGetTypeID(focusedObject) == AXUIElementGetTypeID() else {
+            return .unknown
+        }
+        let element = focusedObject as! AXUIElement
+
+        var settable = DarwinBoolean(false)
+        let settableStatus = AXUIElementIsAttributeSettable(element, kAXValueAttribute as CFString, &settable)
+        return TextDeliveryPolicy.classifyFocusedElement(
+            role: stringAttribute(kAXRoleAttribute as CFString, for: element) ?? "AXUnknown",
+            subrole: stringAttribute(kAXSubroleAttribute as CFString, for: element),
+            isValueSettable: settableStatus == .success && settable.boolValue,
+            hasSelectedTextRange: selectedTextRange(for: element) != nil,
+            bundleIdentifier: app.bundleIdentifier
+        )
+    }
+
     /// Capture the currently focused UI element for an app (for origin field restoration).
     func captureOriginElement(for pid: pid_t) -> AXUIElement? {
         let appElement = AXUIElementCreateApplication(pid)

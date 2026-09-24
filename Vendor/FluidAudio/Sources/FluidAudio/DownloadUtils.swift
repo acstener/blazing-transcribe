@@ -67,7 +67,11 @@ public class DownloadUtils {
     public struct DownloadConfig: Sendable {
         public let timeout: TimeInterval
 
-        public init(timeout: TimeInterval = 1800) {  // 30 minutes for large models
+        // URLRequest.timeoutInterval is an *idle* timeout (time between packets),
+        // not a cap on the whole transfer — large files still download fine.
+        // 30 minutes meant a stalled connection froze progress for half an hour
+        // before failing; 2 minutes fails fast enough for the app to retry.
+        public init(timeout: TimeInterval = 120) {
             self.timeout = timeout
         }
 
