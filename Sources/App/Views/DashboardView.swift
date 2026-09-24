@@ -314,7 +314,7 @@ struct LLMSourceCard: View {
                 HStack(spacing: 5) {
                     Image(systemName: option.icon)
                         .font(.system(size: 11))
-                        .foregroundStyle(isSelected ? Color.accentColor : Color.btSecondaryText)
+                        .foregroundStyle(isSelected ? Color.btAccent : Color.btSecondaryText)
                     Text(option.title)
                         .font(.system(size: 12, weight: .semibold))
                 }
@@ -337,11 +337,11 @@ struct LLMSourceCard: View {
             .padding(BTSpacing.sm)
             .background(
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(isSelected ? Color.accentColor.opacity(0.08) : Color.clear)
+                    .fill(isSelected ? Color.btAccent.opacity(0.08) : Color.clear)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(isSelected ? Color.accentColor : Color.btBorder, lineWidth: isSelected ? 1.5 : 1)
+                    .stroke(isSelected ? Color.btAccent : Color.btBorder, lineWidth: isSelected ? 1.5 : 1)
             )
         }
         .buttonStyle(.plain)
@@ -529,10 +529,10 @@ private struct VoiceStylePicker: View {
 
                         Text("Layered")
                             .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(Color.accentColor)
+                            .foregroundStyle(Color.btAccent)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
-                            .background(Color.accentColor.opacity(0.1))
+                            .background(Color.btAccent.opacity(0.1))
                             .clipShape(Capsule())
                     }
 
@@ -580,10 +580,10 @@ private struct VoiceStylePicker: View {
                                 } label: {
                                     Text("Save Voice")
                                         .font(.system(size: 11, weight: .semibold))
-                                        .foregroundStyle(canSave ? Color.white : Color.btSecondaryText)
+                                        .foregroundStyle(canSave ? Color.btAccentForeground : Color.btSecondaryText)
                                         .padding(.horizontal, 12)
                                         .padding(.vertical, 5)
-                                        .background(canSave ? Color.accentColor : Color.btActiveBackground)
+                                        .background(canSave ? Color.btAccent : Color.btActiveBackground)
                                         .clipShape(Capsule())
                                 }
                                 .buttonStyle(.plain)
@@ -641,10 +641,10 @@ private struct VoiceStylePicker: View {
                                 } label: {
                                     Text("Save")
                                         .font(.system(size: 11, weight: .semibold))
-                                        .foregroundStyle(canSavePresetEdits ? Color.white : Color.btSecondaryText)
+                                        .foregroundStyle(canSavePresetEdits ? Color.btAccentForeground : Color.btSecondaryText)
                                         .padding(.horizontal, 12)
                                         .padding(.vertical, 5)
-                                        .background(canSavePresetEdits ? Color.accentColor : Color.btActiveBackground)
+                                        .background(canSavePresetEdits ? Color.btAccent : Color.btActiveBackground)
                                         .clipShape(Capsule())
                                 }
                                 .buttonStyle(.plain)
@@ -864,7 +864,7 @@ private struct VoiceStyleOptionCard: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(isSelected ? Color.accentColor : Color.btText)
+                    .foregroundStyle(isSelected ? Color.btAccent : Color.btText)
 
                 Text(subtitle)
                     .font(.system(size: 10))
@@ -873,11 +873,11 @@ private struct VoiceStyleOptionCard: View {
             }
             .frame(width: 146, alignment: .leading)
             .padding(BTSpacing.sm)
-            .background(isSelected ? Color.accentColor.opacity(0.08) : Color.btBackground)
+            .background(isSelected ? Color.btAccent.opacity(0.08) : Color.btBackground)
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .strokeBorder(isSelected ? Color.accentColor.opacity(0.5) : Color.btBorder, lineWidth: 1)
+                    .strokeBorder(isSelected ? Color.btAccent.opacity(0.5) : Color.btBorder, lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
@@ -938,7 +938,7 @@ private struct BuiltInVoicePreviewCard: View {
 
                     Text("Output")
                         .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(Color.btAccent)
                         .padding(.top, 2)
                     Text("“\(outputExample)”")
                         .font(.system(size: 12, weight: .medium))
@@ -1085,9 +1085,9 @@ struct CleanupOption: View {
             HStack(spacing: BTSpacing.sm) {
                 Image(systemName: icon)
                     .font(.system(size: 16))
-                    .foregroundStyle(isSelected ? Color.white : (isEnabled ? Color.btText : Color.btSecondaryText))
+                    .foregroundStyle(isSelected ? Color.btAccentForeground : (isEnabled ? Color.btText : Color.btSecondaryText))
                     .frame(width: 28, height: 28)
-                    .background(isSelected ? Color.accentColor : Color.btActiveBackground)
+                    .background(isSelected ? Color.btAccent : Color.btActiveBackground)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
 
                 VStack(alignment: .leading, spacing: 1) {
@@ -1106,7 +1106,7 @@ struct CleanupOption: View {
             .clipShape(RoundedRectangle(cornerRadius: BTSpacing.buttonCornerRadius))
             .overlay(
                 RoundedRectangle(cornerRadius: BTSpacing.buttonCornerRadius)
-                    .strokeBorder(isSelected ? Color.accentColor.opacity(0.5) : Color.clear, lineWidth: 1)
+                    .strokeBorder(isSelected ? Color.btAccent.opacity(0.5) : Color.clear, lineWidth: 1)
             )
             .opacity(isEnabled ? 1 : 0.5)
         }
@@ -1148,12 +1148,12 @@ struct StatusPill: View {
     }
 
     private var dotColor: Color {
-        if isEngineLoading { return .orange }
+        if isEngineLoading { return .btWarning }
         switch state {
         case .idle: return .gray
         case .listening: return .green
-        case .recording: return .red
-        case .transcribing: return .blue
+        case .recording: return .btEmber
+        case .transcribing: return .btAccent
         case .error: return .red
         }
     }

@@ -94,8 +94,8 @@ struct ModeQuickToggle: View {
                 .font(.system(size: 11, weight: .medium))
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .foregroundStyle(viewModel.recordingMode == mode ? Color.white : Color.btSecondaryText)
-                .background(viewModel.recordingMode == mode ? Color.btText : Color.clear)
+                .foregroundStyle(viewModel.recordingMode == mode ? Color.btAccentForeground : Color.btSecondaryText)
+                .background(viewModel.recordingMode == mode ? Color.btAccent : Color.clear)
                 .clipShape(Capsule())
         }
         .buttonStyle(.plain)

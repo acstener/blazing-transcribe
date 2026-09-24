@@ -66,9 +66,9 @@ struct ModeOption: View {
             HStack(spacing: BTSpacing.sm) {
                 Image(systemName: icon)
                     .font(.system(size: 16))
-                    .foregroundStyle(isSelected ? Color.white : Color.btText)
+                    .foregroundStyle(isSelected ? Color.btAccentForeground : Color.btText)
                     .frame(width: 28, height: 28)
-                    .background(isSelected ? Color.accentColor : Color.btActiveBackground)
+                    .background(isSelected ? Color.btAccent : Color.btActiveBackground)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
 
                 VStack(alignment: .leading, spacing: 1) {
@@ -87,7 +87,7 @@ struct ModeOption: View {
             .clipShape(RoundedRectangle(cornerRadius: BTSpacing.buttonCornerRadius))
             .overlay(
                 RoundedRectangle(cornerRadius: BTSpacing.buttonCornerRadius)
-                    .strokeBorder(isSelected ? Color.accentColor.opacity(0.5) : Color.clear, lineWidth: 1)
+                    .strokeBorder(isSelected ? Color.btAccent.opacity(0.5) : Color.clear, lineWidth: 1)
             )
         }
         .buttonStyle(.plain)

@@ -52,6 +52,22 @@ final class AppViewModel {
     var isCaptureRunning = false
     var isSpeechEngineReady = false
     var pttShortcutLabel = ShortcutConfig.shared.pttShortcut.displayString
+    /// True while the push-to-talk shortcut is physically held and was accepted (manual mode).
+    var isShortcutHeld = false
+    /// True while a toggle recording is active; the keycap stays pressed for its duration.
+    var isToggleRecordingActive = false
+    /// Bumped when the shortcut was pressed but recording couldn't start; drives the keycap shake.
+    var shortcutRejectionCount = 0
+
+    /// Whether the dictation keycap should render pressed.
+    var isShortcutKeycapPressed: Bool {
+        recordingMode == .manual && (isShortcutHeld || isToggleRecordingActive)
+    }
+
+    func noteShortcutRejected() {
+        isShortcutHeld = false
+        shortcutRejectionCount &+= 1
+    }
     var refreshEngineReadiness: (() -> Bool)?
     var isDeveloperTestingVisible: Bool = false
     var textCleanupMode: TextCleanupMode = TextCleanupMode.current

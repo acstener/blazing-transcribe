@@ -100,13 +100,12 @@ struct DashboardView: View {
                             selection.current = .general
                         } label: {
                             Text(model.pttShortcutLabel)
-                                .font(.system(size: 18, weight: .medium, design: .monospaced))
-                                .padding(.horizontal, 22).padding(.vertical, 12)
-                                .background(Color.btCardBackground)
-                                .clipShape(RoundedRectangle(cornerRadius: 10))
-                                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.btBorder, lineWidth: 1))
-                                .shadow(color: .black.opacity(0.04), radius: 0, y: 3)
-                        }.buttonStyle(.plain)
+                        }
+                        .buttonStyle(ShortcutKeycapButtonStyle(
+                            label: model.pttShortcutLabel,
+                            isPressed: model.isShortcutKeycapPressed,
+                            rejectionCount: model.shortcutRejectionCount
+                        ))
                             .help("Change your dictation shortcut")
                             .accessibilityLabel("Dictation shortcut: \(model.pttShortcutLabel). Change shortcut")
                     }

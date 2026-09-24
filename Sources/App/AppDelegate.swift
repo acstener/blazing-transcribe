@@ -130,7 +130,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // Manual recording state
     private var isManualRecording = false
-    private var isToggleRecording = false
+    private var isToggleRecording = false {
+        didSet {
+            if viewModel.isToggleRecordingActive != isToggleRecording {
+                viewModel.isToggleRecordingActive = isToggleRecording
+            }
+        }
+    }
     private var manualRecordingActivationGeneration: UInt = 0
     private var isTranscriptionInProgress = false
     private var nextTranscriptionRequestID: UInt64 = 0
@@ -6105,6 +6111,7 @@ extension AppDelegate: GlobalShortcutDelegate {
     }
 
     private func failManualRecordingActivation() {
+        viewModel.noteShortcutRejected()
         isManualRecording = false
         isToggleRecording = false
         clearManualRecordingOrigin()
@@ -6155,10 +6162,12 @@ extension AppDelegate: GlobalShortcutDelegate {
             #if DEBUG
             print("[App] PTT ignored — engine not ready")
             #endif
+            viewModel.noteShortcutRejected()
             if shouldShowPresetOverlay { overlayPanel.show(status: .error("Engine still loading…")) }
             return
         }
 
+        viewModel.isShortcutHeld = true
         captureManualRecordingOrigin()
         isManualRecording = true
         isToggleRecording = false
@@ -6171,11 +6180,13 @@ extension AppDelegate: GlobalShortcutDelegate {
     }
 
     func pttDidRelease() {
+        viewModel.isShortcutHeld = false
         guard isManualRecording, !isToggleRecording else { return }
         finishManualRecording()
     }
 
     func pttDidCancel() {
+        viewModel.isShortcutHeld = false
         guard isManualRecording, !isToggleRecording else { return }
         invalidatePendingManualRecordingActivation()
         isManualRecording = false
@@ -6220,6 +6231,7 @@ extension AppDelegate: GlobalShortcutDelegate {
                 #if DEBUG
                 print("[App] Toggle ignored — engine not ready")
                 #endif
+                viewModel.noteShortcutRejected()
                 if shouldShowPresetOverlay { overlayPanel.show(status: .error("Engine still loading…")) }
                 return
             }
