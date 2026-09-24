@@ -1031,7 +1031,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             appLog("Timing: text-injected source=\(batchSource) total_stop_to_text_ms=\(totalStopToTextMs)")
         }
         if completedRequest?.source == "toggle", ShortcutConfig.shared.recordingMode != .manual {
-            overlayPanel.show(status: .result(finalText))
+            overlayPanel.show(status: .result(finalText, wordCount: finalWordCount, duration: utterance.duration))
         }
         processNextInQueue()
     }
@@ -5559,7 +5559,7 @@ extension AppDelegate: RealtimeParakeetServiceDelegate {
         if ShortcutConfig.shared.recordingMode != .manual,
            !realtimeTargetIsTerminal,
            shouldShowPresetOverlay || realtimeUsingOverlayFallback {
-            overlayPanel.show(status: .result(realtimeFinalText))
+            overlayPanel.show(status: .result(realtimeFinalText, wordCount: finalWordCount))
         }
         let shouldContinueManualStreaming = ShortcutConfig.shared.recordingMode == .manual &&
             (isManualRecording || isToggleRecording)
@@ -5843,7 +5843,7 @@ private extension AppDelegate {
         if ShortcutConfig.shared.recordingMode != .manual,
            !realtimeTargetIsTerminal,
            shouldShowPresetOverlay || realtimeUsingOverlayFallback {
-            overlayPanel.show(status: .result(textToCommit))
+            overlayPanel.show(status: .result(textToCommit, wordCount: finalWordCount))
         }
         let shouldContinueManualStreaming = ShortcutConfig.shared.recordingMode == .manual &&
             (isManualRecording || isToggleRecording)

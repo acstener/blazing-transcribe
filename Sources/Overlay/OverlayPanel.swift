@@ -16,7 +16,9 @@ public final class OverlayPanel: NSPanel {
         case downloading     // Model download in progress
         case loading         // Model loading / compilation (already on disk)
         case partial(String, confirmed: Bool)
-        case result(String)
+        /// Final transcription. `wordCount`/`duration` feed the "42 words · 0.28s"
+        /// line; when omitted the word count is derived from `text`.
+        case result(String, wordCount: Int? = nil, duration: TimeInterval? = nil)
         case warning(String)  // Non-fatal notice (e.g. cleanup fell back, slow transcription)
         case error(String)
     }
@@ -45,6 +47,10 @@ public final class OverlayPanel: NSPanel {
     private var pendingStatusAfterWarmup: Status?
     private var toastPanel: NSPanel?
     private var toastHideTimer: Timer?
+    private var widthGovernor = OverlayPillWidthGovernor()
+    private var pendingLayoutWorkItem: DispatchWorkItem?
+    /// How long the result line ("✓ 42 words · 0.28s") stays up.
+    private let resultVisibleDuration: TimeInterval = 1.6
 
     init(
         contentRect: NSRect,
@@ -80,7 +86,7 @@ public final class OverlayPanel: NSPanel {
         stackIndex: Int = 0
     ) -> OverlayPanel {
         let panel = OverlayPanel(
-            contentRect: NSRect(origin: .zero, size: OverlayLayout.glassSize),
+            contentRect: NSRect(origin: .zero, size: OverlayPillMetrics.stageSize),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false,
@@ -139,7 +145,9 @@ public final class OverlayPanel: NSPanel {
         }
 
         contentView = overlayHost.rootView
-        setContentSize(OverlayLayout.glassSize)
+        // Fixed, invisible stage sized for the largest pill. It is never
+        // resized or recentred per status; the pill morphs inside it.
+        setContentSize(OverlayPillMetrics.stageSize)
         overlayHost.rootView.appearance = nil
         overlayHost.contentHostingView.appearance = nil
         overlayHost.rootView.alphaValue = 1
@@ -227,6 +235,8 @@ public final class OverlayPanel: NSPanel {
         hideTimer?.invalidate()
         hideTimer = nil
         cancelPendingPartialWork()
+        cancelPendingLayoutWork()
+        widthGovernor.reset()
         pendingStatusAfterWarmup = nil
         minimumVisibleUntil = nil
         isShowingRecording = false
@@ -297,6 +307,8 @@ public final class OverlayPanel: NSPanel {
     }
 
     private func dismiss() {
+        cancelPendingLayoutWork()
+        widthGovernor.reset()
         guard isVisible else {
             viewModel.isPresented = false
             viewModel.status = .idle
@@ -348,12 +360,15 @@ public final class OverlayPanel: NSPanel {
         }
     }
 
-    /// Position at the bottom center of the main screen.
+    /// Position the stage at the bottom center of the screen so the pill's
+    /// bottom edge sits `bottomDockOffset` above the visible frame, as before.
+    /// Called once per presentation, never per status.
     private func positionAtBottomCenter() {
         guard let screen = targetScreen() else { return }
         let screenFrame = screen.visibleFrame
         let x = screenFrame.midX - frame.width / 2
-        let y = screenFrame.minY + OverlayLayout.bottomDockOffset + CGFloat(stackIndex) * OverlayLayout.comparePanelSpacing
+        let y = screenFrame.minY + OverlayLayout.bottomDockOffset - OverlayPillMetrics.stagePadding
+            + CGFloat(stackIndex) * OverlayLayout.comparePanelSpacing
         setFrameOrigin(NSPoint(x: x, y: y))
     }
 
@@ -487,8 +502,8 @@ public final class OverlayPanel: NSPanel {
             return "loading"
         case .partial(let text, let confirmed):
             return "partial(len=\(text.count),confirmed=\(confirmed))"
-        case .result(let text):
-            return "result(len=\(text.count))"
+        case .result(let text, let wordCount, _):
+            return "result(len=\(text.count),words=\(wordCount.map(String.init) ?? "nil"))"
         case .warning(let message):
             return "warning(len=\(message.count))"
         case .error(let message):
@@ -547,9 +562,13 @@ public final class OverlayPanel: NSPanel {
             viewModel.resetAudioLevel()
             viewModel.status = .recording
 
-        case .result(let text):
-            viewModel.status = .result(text)
-            scheduleHide(after: 3.0)
+        case .result:
+            viewModel.status = status
+            scheduleHide(after: resultVisibleDuration)
+
+        case .arming:
+            viewModel.armingPulseCount &+= 1
+            viewModel.status = .arming
 
         case .warning(let message):
             viewModel.status = .warning(message)
@@ -572,24 +591,50 @@ public final class OverlayPanel: NSPanel {
             minimumVisibleUntil = Date().addingTimeInterval(minimumVisibleDuration)
         }
 
-        overlayHost.contentHostingView.layoutSubtreeIfNeeded()
-        overlayHost.rootView.layoutSubtreeIfNeeded()
-
-        let fitting = overlayHost.contentHostingView.fittingSize
-        let extraWidth = usesLiquidGlass
-            ? OverlayLayout.glassContentInsets.left + OverlayLayout.glassContentInsets.right
-            : 0
-        let extraHeight = usesLiquidGlass
-            ? OverlayLayout.glassContentInsets.top + OverlayLayout.glassContentInsets.bottom
-            : 0
-        let size = NSSize(
-            width: max(OverlayLayout.glassSize.width, ceil(fitting.width + extraWidth)),
-            height: max(OverlayLayout.glassSize.height, ceil(fitting.height + extraHeight))
-        )
-        setContentSize(size)
-        positionAtBottomCenter()
+        // The panel frame stays put; only the pill inside it morphs. Animate
+        // only when already on screen so a fresh show appears at its size.
+        updatePillLayout(animated: wasVisible)
 
         present()
+    }
+
+    /// Resolve the pill's target size for the current status and hand it to
+    /// the host. Streaming partials go through the width governor
+    /// (grow-only, ≤8 Hz); a held-back width is retried shortly.
+    private func updatePillLayout(animated: Bool) {
+        cancelPendingLayoutWork()
+
+        let presentation = OverlayPillPresentation(status: viewModel.status)
+        let target = OverlayPillMetrics.layout(
+            for: presentation,
+            visualStyle: visualStyle,
+            nativeGlass: usesLiquidGlass
+        )
+        let decision = widthGovernor.resolve(
+            target: target.width,
+            isStreaming: presentation.isStreaming,
+            now: CFAbsoluteTimeGetCurrent()
+        )
+        overlayHost.applyPillLayout(
+            OverlayPillLayout(width: decision.width, height: target.height),
+            animated: animated
+        )
+
+        if let retryAfter = decision.retryAfter {
+            let workItem = DispatchWorkItem { [weak self] in
+                guard let self else { return }
+                self.pendingLayoutWorkItem = nil
+                guard case .partial = self.viewModel.status, self.isVisible else { return }
+                self.updatePillLayout(animated: true)
+            }
+            pendingLayoutWorkItem = workItem
+            DispatchQueue.main.asyncAfter(deadline: .now() + retryAfter, execute: workItem)
+        }
+    }
+
+    private func cancelPendingLayoutWork() {
+        pendingLayoutWorkItem?.cancel()
+        pendingLayoutWorkItem = nil
     }
 
     private func handlePartialThrottle(text: String, confirmed: Bool) -> Bool {
@@ -694,10 +739,11 @@ public final class OverlayPanel: NSPanel {
         panel.ignoresMouseEvents = true
         panel.contentView = container
 
-        // Position above the main overlay
+        // Position above the pill (the panel itself is a larger, invisible stage)
         let overlayFrame = self.frame
+        let pillTop = overlayFrame.minY + OverlayPillMetrics.stagePadding + viewModel.pillLayout.height
         let x = overlayFrame.midX - panelSize.width / 2
-        let y = overlayFrame.maxY + 8
+        let y = pillTop + 8
         panel.setFrameOrigin(NSPoint(x: x, y: y))
 
         panel.alphaValue = 0

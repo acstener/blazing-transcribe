@@ -93,35 +93,68 @@ enum OverlayGlassRecipe: String, CaseIterable {
 }
 
 protocol OverlayHosting: AnyObject {
+    /// The panel's content view: a fixed-size, transparent stage.
     var rootView: NSView { get }
     var contentHostingView: NSView { get }
     func reapplyGlassTuning()
+    /// Resize the visible pill inside the fixed stage.
+    func applyPillLayout(_ layout: OverlayPillLayout, animated: Bool)
 }
 
+/// Pre-macOS 26 material and black styles: SwiftUI draws and animates the pill.
 final class SwiftUIOverlayHost: OverlayHosting {
     let hostingView: NSHostingView<OverlayContentView>
+    private let stage: NSView
+    private let viewModel: OverlayViewModel
 
     init(viewModel: OverlayViewModel, visualStyle: OverlayVisualStyle) {
+        self.viewModel = viewModel
+        stage = NSView(frame: NSRect(origin: .zero, size: OverlayPillMetrics.stageSize))
+        stage.wantsLayer = true
+        stage.layer?.backgroundColor = .clear
+
         hostingView = NSHostingView(rootView: OverlayContentView(viewModel: viewModel, visualStyle: visualStyle))
+        // Hosting view lives inside a plain container and never pushes its
+        // size into the window; the pill animates inside a fixed stage.
+        hostingView.sizingOptions = []
+        hostingView.frame = stage.bounds
+        hostingView.autoresizingMask = [.width, .height]
         hostingView.wantsLayer = true
         hostingView.layer?.backgroundColor = .clear
+        stage.addSubview(hostingView)
     }
 
-    var rootView: NSView { hostingView }
+    var rootView: NSView { stage }
     var contentHostingView: NSView { hostingView }
 
     func reapplyGlassTuning() {}
+
+    func applyPillLayout(_ layout: OverlayPillLayout, animated: Bool) {
+        guard viewModel.pillLayout != layout else { return }
+        // The view scopes its own size spring; a non-animated update (first
+        // show) disables it so the pill appears at its size.
+        var transaction = Transaction()
+        transaction.disablesAnimations = !animated
+        withTransaction(transaction) {
+            viewModel.pillLayout = layout
+        }
+    }
 }
 
 @available(macOS 26.0, *)
 final class NativeGlassOverlayHost: OverlayHosting {
     private let root: NSView
+    private let pill: NSView
     private let glassView: NSGlassEffectView
     private let glassTuning: OverlayPrivateGlassTuning?
     private let glassContext: String
+    private let viewModel: OverlayViewModel
+    private let widthConstraint: NSLayoutConstraint
+    private let heightConstraint: NSLayoutConstraint
     let hostingView: NSHostingView<OverlayContentView>
 
     init(viewModel: OverlayViewModel, recipe: OverlayGlassRecipe, visualStyle: OverlayVisualStyle) {
+        self.viewModel = viewModel
         glassTuning = recipe.privateGlassTuning
         glassContext = recipe.rawValue
 
@@ -132,6 +165,8 @@ final class NativeGlassOverlayHost: OverlayHosting {
         contentContainer.wantsLayer = true
         contentContainer.layer?.backgroundColor = .clear
         contentContainer.layer?.borderWidth = 0
+        // Content is laid out at the target size; clip it while the glass morphs.
+        contentContainer.layer?.masksToBounds = true
 
         hostingView = NSHostingView(rootView: OverlayContentView(viewModel: viewModel, visualStyle: visualStyle))
         hostingView.translatesAutoresizingMaskIntoConstraints = false
@@ -141,6 +176,7 @@ final class NativeGlassOverlayHost: OverlayHosting {
         // `sceneBridgingOptions` only bridges SwiftUI scene chrome such as titles
         // and toolbars. The overlay has no scene chrome, so keep bridging disabled.
         hostingView.sceneBridgingOptions = []
+        hostingView.sizingOptions = []
 
         contentContainer.addSubview(hostingView)
         NSLayoutConstraint.activate([
@@ -162,10 +198,27 @@ final class NativeGlassOverlayHost: OverlayHosting {
                 glassView.topAnchor.constraint(equalTo: clipView.topAnchor),
                 glassView.bottomAnchor.constraint(equalTo: clipView.bottomAnchor),
             ])
-            root = clipView
+            pill = clipView
         } else {
-            root = OverlayGlassChromeView(recipe: recipe, glassView: glassView)
+            pill = OverlayGlassChromeView(recipe: recipe, glassView: glassView)
         }
+
+        // Fixed, transparent stage; the glass pill is bottom-centred inside
+        // it and only its width/height constraints change.
+        root = NSView(frame: NSRect(origin: .zero, size: OverlayPillMetrics.stageSize))
+        root.wantsLayer = true
+        root.layer?.backgroundColor = .clear
+        pill.translatesAutoresizingMaskIntoConstraints = false
+        root.addSubview(pill)
+        let initial = viewModel.pillLayout
+        widthConstraint = pill.widthAnchor.constraint(equalToConstant: initial.width)
+        heightConstraint = pill.heightAnchor.constraint(equalToConstant: initial.height)
+        NSLayoutConstraint.activate([
+            pill.centerXAnchor.constraint(equalTo: root.centerXAnchor),
+            pill.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -OverlayPillMetrics.stagePadding),
+            widthConstraint,
+            heightConstraint,
+        ])
     }
 
     var rootView: NSView { root }
@@ -173,6 +226,35 @@ final class NativeGlassOverlayHost: OverlayHosting {
 
     func reapplyGlassTuning() {
         OverlayPrivateGlassAPI.apply(to: glassView, tuning: glassTuning, context: glassContext)
+    }
+
+    /// Morphs the glass by animating its size constraints with the same
+    /// spring SwiftUI uses. The panel's alpha is never touched (fading the
+    /// glass panel starves the compositor and the glass renders flat).
+    func applyPillLayout(_ layout: OverlayPillLayout, animated: Bool) {
+        // SwiftUI content snaps to its target size and is clipped by the
+        // content container while the glass catches up.
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            viewModel.pillLayout = layout
+        }
+
+        guard widthConstraint.constant != layout.width || heightConstraint.constant != layout.height else { return }
+
+        guard animated else {
+            widthConstraint.constant = layout.width
+            heightConstraint.constant = layout.height
+            root.layoutSubtreeIfNeeded()
+            return
+        }
+
+        let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        let animation: Animation = reduceMotion ? .easeOut(duration: 0.12) : .smooth(duration: 0.32)
+        NSAnimationContext.animate(animation) {
+            widthConstraint.animator().constant = layout.width
+            heightConstraint.animator().constant = layout.height
+        }
     }
 
     func dumpLayerTree(reason: String) {
