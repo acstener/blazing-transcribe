@@ -4,6 +4,58 @@ extension Notification.Name {
     static let usageStatsDidChange = Notification.Name("UsageStatsDidChange")
 }
 
+/// A word-count landmark shown on the Usage page and celebrated once on Home.
+struct UsageMilestone: Equatable, Sendable {
+    let words: Int
+    let name: String
+    let emoji: String
+
+    static let wordsPerPage = 250
+
+    /// Ascending. Names line up with `UsageStats.funEquivalent`.
+    static let all: [UsageMilestone] = [
+        UsageMilestone(words: 500, name: "a short blog post", emoji: "\u{270D}\u{FE0F}"),
+        UsageMilestone(words: 750, name: "a blog post", emoji: "\u{1F4DD}"),
+        UsageMilestone(words: 1_500, name: "a college essay", emoji: "\u{1F393}"),
+        UsageMilestone(words: 3_000, name: "a short story", emoji: "\u{1F4DC}"),
+        UsageMilestone(words: 6_000, name: "a long report", emoji: "\u{1F4C4}"),
+        UsageMilestone(words: 15_000, name: "a novella", emoji: "\u{1F4D8}"),
+        UsageMilestone(words: 50_000, name: "a short novel", emoji: "\u{1F4D6}"),
+        UsageMilestone(words: 80_000, name: "a full novel", emoji: "\u{1F4DA}"),
+        UsageMilestone(words: 250_000, name: "an epic saga", emoji: "\u{1F409}"),
+        UsageMilestone(words: 1_000_000, name: "a million words", emoji: "\u{1F525}"),
+    ]
+
+    static func current(forWords words: Int) -> UsageMilestone? {
+        all.last { $0.words <= words }
+    }
+
+    static func next(forWords words: Int) -> UsageMilestone? {
+        all.first { $0.words > words }
+    }
+
+    /// 0...1 progress from the previous milestone (or zero) towards the next one. 1 when all passed.
+    static func progress(forWords words: Int) -> Double {
+        guard let next = next(forWords: words) else { return 1 }
+        let floor = current(forWords: words)?.words ?? 0
+        let span = Double(next.words - floor)
+        return min(1, max(0, Double(words - floor) / span))
+    }
+
+    /// e.g. "38 pages to a full novel", or "120 words to a blog post" when under a page away.
+    static func remainingText(forWords words: Int) -> String? {
+        guard let next = next(forWords: words) else { return nil }
+        let remaining = next.words - words
+        if remaining >= wordsPerPage {
+            let pages = Int((Double(remaining) / Double(wordsPerPage)).rounded(.up))
+            return "\(pages) \(pages == 1 ? "page" : "pages") to \(next.name)"
+        }
+        return "\(remaining) \(remaining == 1 ? "word" : "words") to \(next.name)"
+    }
+
+    var celebrationText: String { "You just passed \(name) \(emoji)" }
+}
+
 final class UsageStats {
     static let shared = UsageStats()
 
@@ -20,7 +72,13 @@ final class UsageStats {
         static let totalSpeechSeconds = "stats.totalSpeechSeconds"
         static let firstUseDate = "stats.firstUseDate"
         static let totalCleanupFixes = "stats.totalCleanupFixes"
+        static let dailyWords = "stats.dailyWords"
+        static let celebratedMilestones = "stats.celebratedMilestones"
+        static let lastViewedValues = "stats.lastViewedValues"
     }
+
+    /// How many days of per-day word counts to keep (a little over a year, for a future heatmap).
+    static let dailyWordsRetention = 400
 
     // MARK: - Persisted Counters
 
@@ -149,8 +207,16 @@ final class UsageStats {
 
     // MARK: - Recording
 
-    func record(wordCount: Int, characterCount: Int, transcriptionDuration: Double, speechDuration: Double) {
+    func record(
+        wordCount: Int,
+        characterCount: Int,
+        transcriptionDuration: Double,
+        speechDuration: Double,
+        date: Date = Date()
+    ) {
         ensureFirstUseDate()
+        seedCelebratedMilestonesIfNeeded()
+        addDailyWords(wordCount, on: date)
         defaults.set(totalWords + wordCount, forKey: Key.totalWords)
         defaults.set(totalCharacters + characterCount, forKey: Key.totalCharacters)
         defaults.set(totalUtterances + 1, forKey: Key.totalUtterances)
@@ -159,8 +225,10 @@ final class UsageStats {
         notifyDidChange()
     }
 
-    func recordStreaming(wordCount: Int, characterCount: Int) {
+    func recordStreaming(wordCount: Int, characterCount: Int, date: Date = Date()) {
         ensureFirstUseDate()
+        seedCelebratedMilestonesIfNeeded()
+        addDailyWords(wordCount, on: date)
         defaults.set(totalWords + wordCount, forKey: Key.totalWords)
         defaults.set(totalCharacters + characterCount, forKey: Key.totalCharacters)
         notifyDidChange()
@@ -179,8 +247,91 @@ final class UsageStats {
         defaults.removeObject(forKey: Key.totalTranscriptionSeconds)
         defaults.removeObject(forKey: Key.totalSpeechSeconds)
         defaults.removeObject(forKey: Key.totalCleanupFixes)
+        defaults.removeObject(forKey: Key.dailyWords)
+        defaults.removeObject(forKey: Key.lastViewedValues)
+        // Totals are zero again, so every milestone can be celebrated afresh.
+        defaults.set([Int](), forKey: Key.celebratedMilestones)
         defaults.set(Date().timeIntervalSince1970, forKey: Key.firstUseDate)
         notifyDidChange()
+    }
+
+    // MARK: - Per-day words
+
+    /// Words dictated per local calendar day, keyed `yyyy-MM-dd`. Kept for a future heatmap.
+    var dailyWords: [String: Int] {
+        (defaults.dictionary(forKey: Key.dailyWords) as? [String: Int]) ?? [:]
+    }
+
+    func words(on date: Date) -> Int {
+        dailyWords[Self.dayKey(for: date)] ?? 0
+    }
+
+    static func dayKey(for date: Date, calendar: Calendar = .current) -> String {
+        let c = calendar.dateComponents([.year, .month, .day], from: date)
+        return String(format: "%04d-%02d-%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)
+    }
+
+    private func addDailyWords(_ count: Int, on date: Date) {
+        guard count > 0 else { return }
+        var days = dailyWords
+        days[Self.dayKey(for: date), default: 0] += count
+        if days.count > Self.dailyWordsRetention {
+            // Keys are zero-padded ISO dates, so lexical order is chronological.
+            for key in days.keys.sorted().prefix(days.count - Self.dailyWordsRetention) {
+                days.removeValue(forKey: key)
+            }
+        }
+        defaults.set(days, forKey: Key.dailyWords)
+    }
+
+    // MARK: - Milestones
+
+    /// The milestone most recently passed, if any.
+    var currentMilestone: UsageMilestone? { UsageMilestone.current(forWords: totalWords) }
+
+    /// The next milestone to reach, if any are left.
+    var nextMilestone: UsageMilestone? { UsageMilestone.next(forWords: totalWords) }
+
+    /// Word thresholds of milestones that have already been celebrated on Home.
+    var celebratedMilestoneWords: Set<Int> {
+        Set((defaults.array(forKey: Key.celebratedMilestones) as? [Int]) ?? [])
+    }
+
+    /// The highest passed milestone that hasn't been celebrated yet. Users who already had
+    /// words before milestones existed are seeded silently, so they never get a stale toast.
+    var pendingCelebration: UsageMilestone? {
+        seedCelebratedMilestonesIfNeeded()
+        let celebrated = celebratedMilestoneWords
+        return UsageMilestone.all
+            .filter { $0.words <= totalWords && !celebrated.contains($0.words) }
+            .last
+    }
+
+    /// Marks `milestone` and every milestone below it as celebrated, so crossing several at once
+    /// produces a single toast.
+    func markCelebrated(_ milestone: UsageMilestone) {
+        var celebrated = celebratedMilestoneWords
+        for m in UsageMilestone.all where m.words <= milestone.words {
+            celebrated.insert(m.words)
+        }
+        defaults.set(celebrated.sorted(), forKey: Key.celebratedMilestones)
+    }
+
+    private func seedCelebratedMilestonesIfNeeded() {
+        guard defaults.object(forKey: Key.celebratedMilestones) == nil else { return }
+        let reached = UsageMilestone.all.filter { $0.words <= totalWords }.map(\.words)
+        defaults.set(reached, forKey: Key.celebratedMilestones)
+    }
+
+    // MARK: - Last viewed (Usage page change flash)
+
+    /// Metric values as they were the last time the Usage page was viewed. Empty if never viewed.
+    var lastViewedValues: [String: Double] {
+        (defaults.dictionary(forKey: Key.lastViewedValues) as? [String: Double]) ?? [:]
+    }
+
+    func setLastViewedValues(_ values: [String: Double]) {
+        defaults.set(values, forKey: Key.lastViewedValues)
     }
 
     // MARK: - Formatting
