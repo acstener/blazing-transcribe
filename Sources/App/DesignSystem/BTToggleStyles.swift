@@ -14,10 +14,14 @@ private struct BTSwitch: View {
     let configuration: ToggleStyleConfiguration
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    // Custom styles must honour `.labelsHidden()` themselves.
+    @Environment(\.labelsVisibility) private var labelsVisibility
 
     var body: some View {
         HStack(spacing: BTSpacing.sm) {
-            configuration.label
+            if labelsVisibility != .hidden {
+                configuration.label
+            }
             Button {
                 configuration.isOn.toggle()
             } label: {
@@ -54,6 +58,7 @@ struct BTCheckboxToggleStyle: ToggleStyle {
 private struct BTCheckbox: View {
     let configuration: ToggleStyleConfiguration
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.labelsVisibility) private var labelsVisibility
 
     var body: some View {
         Button {
@@ -72,7 +77,9 @@ private struct BTCheckbox: View {
                     }
                 }
                 .frame(width: 14, height: 14)
-                configuration.label
+                if labelsVisibility != .hidden {
+                    configuration.label
+                }
             }
             .contentShape(Rectangle())
         }
