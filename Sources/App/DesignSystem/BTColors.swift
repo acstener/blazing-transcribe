@@ -10,6 +10,15 @@ extension Color {
     static let btSecondaryText = adaptive(light: 0x686D69, dark: 0xA7ACA8)
     static let btBorder = adaptive(light: 0xE3E5E1, dark: 0x383B38)
 
+    // Blazing is monochrome: selection uses a neutral accent, not the system accent.
+    static let btAccent = btText
+    /// Glyphs and text drawn on top of `btAccent`.
+    static let btAccentForeground = btBackground
+    /// Signal colour for *live* moments only (recording, pressed keycap, milestones, diff insertions).
+    static let btEmber = adaptive(light: 0xE8590C, dark: 0xFF6B2C)
+    /// Warnings stay amber so they never read as Ember.
+    static let btWarning = adaptive(light: 0xD99A00, dark: 0xF2B400)
+
     private static func adaptive(light: UInt, dark: UInt) -> Color {
         Color(nsColor: NSColor(name: nil) { appearance in
             let value = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light
