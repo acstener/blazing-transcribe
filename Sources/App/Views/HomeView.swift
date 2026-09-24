@@ -206,6 +206,7 @@ struct DashboardView: View {
             .frame(maxWidth: 600)
             .frame(maxWidth: .infinity)
         }
+        .overlay(alignment: .bottom) { MilestoneToast() }
         .onAppear { history.loadRecent() }
         .onReceive(NotificationCenter.default.publisher(for: .transcriptionHistoryDidChange)) { _ in
             history.loadRecent(); copied = false
