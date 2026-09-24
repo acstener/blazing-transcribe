@@ -66,16 +66,8 @@ struct OverlayWaveformView: View {
     private func drawBars(context: GraphicsContext, size: CGSize, date: Date) {
         let metrics = OverlayWaveformLayout.metrics(for: visualStyle)
         let level = CGFloat(max(0, min(1, viewModel.smoothedAudioLevel)))
-        let barColor: Color
-        if visualStyle == .black {
-            barColor = Color.white.opacity(0.96)
-        } else if #available(macOS 26.0, *) {
-            barColor = viewModel.colorScheme == .dark
-                ? Color.white
-                : Color.black.opacity(0.82)
-        } else {
-            barColor = Color.overlayText
-        }
+        // Recording is a live moment: the waveform is Blazing's Ember signal colour.
+        let barColor = Color.overlayEmber
 
         let totalWidth = metrics.totalWidth
         let startX: CGFloat = (size.width - totalWidth) / 2

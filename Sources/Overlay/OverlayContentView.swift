@@ -16,6 +16,14 @@ final class OverlayViewModel {
     var isPresented: Bool = false
     var colorScheme: ColorScheme = OverlayViewModel.currentSystemColorScheme()
     var compareBadgeText: String?
+    /// Target pill size. The panel is a fixed stage; SwiftUI (or the glass
+    /// width constraint) animates the visible pill to this size.
+    var pillLayout = OverlayPillLayout(
+        width: OverlayPillMetrics.quantize(OverlayLayout.glassSize.width),
+        height: OverlayPillMetrics.singleLineHeight
+    )
+    /// Bumped each time the pill enters `.arming` so the mic glyph pulses once.
+    var armingPulseCount: Int = 0
 
     /// Reads the actual macOS dark/light setting directly from user defaults,
     /// bypassing any NSWindow appearance inheritance delay.
@@ -68,12 +76,48 @@ final class OverlayViewModel {
 
 // MARK: - Content View
 
+/// One continuously morphing pill. The panel hosting this view is a fixed,
+/// invisible stage; the pill is drawn bottom-centred inside it and only its
+/// drawn size animates, so nothing in AppKit moves or resizes per status.
 struct OverlayContentView: View {
     let viewModel: OverlayViewModel
     let visualStyle: OverlayVisualStyle
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var usesNativeGlass: Bool {
+        if #available(macOS 26.0, *), visualStyle == .glass {
+            return true
+        }
+        return false
+    }
+
+    private var presentation: OverlayPillPresentation {
+        OverlayPillPresentation(status: viewModel.status)
+    }
+
     private var waveformMetrics: OverlayWaveformMetrics {
         OverlayWaveformLayout.metrics(for: visualStyle)
+    }
+
+    /// Pill width/height morph. Reduce Motion: short ease-out, no spring.
+    private var sizeAnimation: Animation {
+        reduceMotion ? .easeOut(duration: 0.12) : .smooth(duration: 0.32)
+    }
+
+    /// Crossfade between states' content.
+    private var contentAnimation: Animation {
+        reduceMotion ? .easeOut(duration: 0.12) : .easeOut(duration: 0.2)
+    }
+
+    /// Size of the content area. On the native glass path AppKit owns the
+    /// pill chrome (and its insets); SwiftUI only draws content.
+    private var contentSize: CGSize {
+        let insets = OverlayPillMetrics.chromeInsets(nativeGlass: usesNativeGlass)
+        return CGSize(
+            width: max(0, viewModel.pillLayout.width - insets.left - insets.right),
+            height: max(0, viewModel.pillLayout.height - insets.top - insets.bottom)
+        )
     }
 
     private var primaryTextStyle: AnyShapeStyle {
@@ -112,85 +156,131 @@ struct OverlayContentView: View {
         return AnyShapeStyle(.secondary)
     }
 
+    private func symbolStyle(for tone: OverlayPillTone) -> AnyShapeStyle {
+        switch tone {
+        case .neutral:
+            return neutralIconStyle
+        case .ember:
+            return AnyShapeStyle(Color.overlayEmber)
+        case .success:
+            return AnyShapeStyle(Color.green)
+        case .warning:
+            return AnyShapeStyle(Color.overlayWarning)
+        case .error:
+            return AnyShapeStyle(Color.red)
+        }
+    }
+
     var body: some View {
-        if #available(macOS 26.0, *), visualStyle == .glass {
-            contentForStatus
+        if usesNativeGlass {
+            // AppKit sizes the NSGlassEffectView (animated width constraint);
+            // the content sits centred at its target size and is clipped by
+            // the glass content container while the glass morphs.
+            pillContent
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 .overlay(alignment: .topTrailing) {
                     compareBadgeOverlay
                 }
                 .preferredColorScheme(viewModel.colorScheme)
         } else {
-            contentForStatus
-                .modifier(OverlayBackgroundModifier(visualStyle: visualStyle))
+            pill
                 // .id() forces SwiftUI to recreate the view each time we
-                // present so the material samples the current background.
+                // present so the material samples the current background
+                // (and the pill appears at its size without morphing in).
                 .id(viewModel.presentationID)
-                .scaleEffect(viewModel.isPresented ? 1.0 : 0.92)
+                .scaleEffect(viewModel.isPresented ? 1.0 : 0.92, anchor: .bottom)
                 .opacity(viewModel.isPresented ? 1.0 : 0)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                .padding(.bottom, OverlayPillMetrics.stagePadding)
                 // Lock color scheme before first render to prevent light-mode flash
                 .preferredColorScheme(viewModel.colorScheme)
         }
     }
 
-    @ViewBuilder
-    private var contentForStatus: some View {
-        switch viewModel.status {
-        case .arming, .recording:
-            recordingContent
-        default:
-            standardContent
-        }
+    /// SwiftUI-drawn pill (pre-26 material and black styles).
+    private var pill: some View {
+        let shape = RoundedRectangle(cornerRadius: OverlayLayout.glassCornerRadius, style: .continuous)
+        let size = viewModel.pillLayout
+        return pillContent
+            // Only the pill's frame and chrome animate with the size spring;
+            // content keeps its own crossfade and never reflows mid-morph.
+            .animation(sizeAnimation) { content in
+                content
+                    .frame(width: size.width, height: size.height)
+                    .clipShape(shape)
+                    .modifier(OverlayBackgroundModifier(visualStyle: visualStyle, shape: shape))
+            }
+            .geometryGroup()
     }
 
-    // MARK: - Recording (matches React GlassOverlay)
-
-    private var recordingContent: some View {
-        OverlayWaveformView(viewModel: viewModel, visualStyle: visualStyle)
-            .frame(width: waveformMetrics.totalWidth, height: waveformMetrics.height)
-            .padding(.horizontal, waveformMetrics.horizontalPadding)
-            .padding(.vertical, waveformMetrics.verticalPadding)
-            // TODO: re-enable once styled properly
-            // .overlay(alignment: .bottom) {
-            //     noMicHint
-            //         .opacity(viewModel.showNoInputHint ? 1 : 0)
-            //         .padding(.bottom, 1)
-            // }
+    /// Content for the current status, laid out at the target size.
+    private var pillContent: some View {
+        let presentation = presentation
+        let size = contentSize
+        return ZStack {
+            if presentation.kind == .waveform {
+                OverlayWaveformView(viewModel: viewModel, visualStyle: visualStyle)
+                    .frame(width: waveformMetrics.totalWidth, height: waveformMetrics.height)
+                    .transition(.opacity)
+            } else {
+                glyphAndLabel(presentation)
+                    .transition(.opacity)
+            }
+        }
+        .animation(contentAnimation, value: presentation.contentAnimationKey)
+        .frame(width: size.width, height: size.height)
     }
 
-    private var noMicHint: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "mic.slash")
-                .font(.system(size: 9, weight: .semibold))
-            Text("No mic input")
-                .font(.system(size: 9, weight: .semibold))
+    private func glyphAndLabel(_ presentation: OverlayPillPresentation) -> some View {
+        HStack(spacing: OverlayPillMetrics.symbolSpacing) {
+            if let symbolName = presentation.symbolName {
+                symbol(symbolName, presentation: presentation)
+                    .transition(.opacity)
+            }
+            if let label = presentation.label {
+                labelText(label, presentation: presentation)
+                    .font(.system(size: OverlayPillMetrics.labelFontSize, weight: .medium))
+                    .lineLimit(presentation.maxLines)
+                    // Streaming text keeps the newest words visible.
+                    .truncationMode(presentation.isStreaming ? .head : .tail)
+                    .multilineTextAlignment(.leading)
+                    .contentTransition(.opacity)
+                    .transition(.opacity)
+            }
         }
-        .foregroundStyle(noMicHintColor.opacity(0.5))
+        .padding(.horizontal, OverlayPillMetrics.contentPadding(nativeGlass: usesNativeGlass))
     }
 
-    private var noMicHintColor: Color {
-        if visualStyle == .black {
-            return .white
-        }
-        if #available(macOS 26.0, *) {
-            return viewModel.colorScheme == .dark ? .white : .black
-        }
-        return Color.overlayText
+    private func symbol(_ name: String, presentation: OverlayPillPresentation) -> some View {
+        Image(systemName: name)
+            .font(.system(size: 13, weight: .medium))
+            .foregroundStyle(symbolStyle(for: presentation.tone))
+            .contentTransition(reduceMotion ? .opacity : .symbolEffect(.replace))
+            // Transcribing: variable colour sweep. Never loops under Reduce Motion.
+            .symbolEffect(.variableColor.iterative, isActive: presentation.isBusy && !reduceMotion)
+            // Arming: a single pulse (skipped under Reduce Motion).
+            .symbolEffect(.pulse, options: .nonRepeating, value: reduceMotion ? 0 : viewModel.armingPulseCount)
+            .frame(width: OverlayPillMetrics.symbolSize, height: OverlayPillMetrics.symbolSize)
     }
 
-    // MARK: - Standard states (icon + label)
-
-    private var standardContent: some View {
-        HStack(spacing: 6) {
-            statusIcon
-                .font(.system(size: 13, weight: .medium))
-                .frame(width: 16, height: 16)
-
-            statusLabel
-                .frame(maxWidth: OverlayLayout.maximumTextWidth, alignment: .leading)
+    /// One `Text` for every label so changes crossfade in place. Unconfirmed
+    /// partials dim their last five words.
+    private func labelText(_ text: String, presentation: OverlayPillPresentation) -> Text {
+        guard presentation.dimsTail else {
+            return Text(text).foregroundStyle(primaryTextStyle)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
+
+        let words = text.split(separator: " ", omittingEmptySubsequences: false)
+        let tailCount = 5
+        let splitIndex = max(0, words.count - tailCount)
+        let confirmed = words.prefix(splitIndex).joined(separator: " ")
+        let tail = words.suffix(from: splitIndex).joined(separator: " ")
+
+        if confirmed.isEmpty {
+            return Text(tail).foregroundStyle(secondaryTextStyle)
+        }
+        return Text(confirmed + " ").foregroundStyle(primaryTextStyle)
+            + Text(tail).foregroundStyle(secondaryTextStyle)
     }
 
     @ViewBuilder
@@ -222,157 +312,27 @@ struct OverlayContentView: View {
         }
         return Color.black.opacity(0.08)
     }
-
-    @ViewBuilder
-    private var statusIcon: some View {
-        switch viewModel.status {
-        case .idle:
-            Image(systemName: "mic.fill")
-                .foregroundStyle(neutralIconStyle)
-        case .muted:
-            Image(systemName: "mic.slash")
-                .foregroundStyle(neutralIconStyle)
-        case .listening:
-            Image(systemName: "waveform")
-                .foregroundStyle(.green)
-        case .arming:
-            Image(systemName: "mic.fill")
-                .foregroundStyle(.orange)
-        case .recording:
-            EmptyView()
-        case .transcribing:
-            Image(systemName: "brain")
-                .foregroundStyle(.blue)
-        case .hearing:
-            Image(systemName: "waveform.badge.mic")
-                .foregroundStyle(.blue)
-        case .downloading:
-            Image(systemName: "arrow.down.circle")
-                .foregroundStyle(.orange)
-        case .loading:
-            Image(systemName: "brain")
-                .foregroundStyle(.blue)
-        case .partial(_, let confirmed):
-            Image(systemName: confirmed ? "checkmark.bubble" : "ellipsis.bubble")
-                .foregroundStyle(confirmed ? .green : .blue)
-        case .result:
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(.green)
-        case .warning:
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(.orange)
-        case .error:
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(.red)
-        }
-    }
-
-    @ViewBuilder
-    private var statusLabel: some View {
-        switch viewModel.status {
-        case .idle:
-            statusText("Ready")
-        case .muted:
-            statusText("Muted")
-        case .listening:
-            statusText("Listening…")
-        case .arming:
-            statusText("Activating mic…")
-        case .recording:
-            EmptyView()
-        case .transcribing:
-            statusText("Transcribing…")
-        case .hearing:
-            statusText("Hearing you…")
-        case .downloading:
-            statusText("Downloading model…")
-        case .loading:
-            statusText("Starting…")
-        case .partial(let text, let confirmed):
-            if confirmed {
-                statusText(text)
-            } else {
-                partialText(text)
-            }
-        case .result(let text):
-            statusText(text)
-        case .warning(let message):
-            statusText(message)
-        case .error(let message):
-            statusText(message)
-        }
-    }
-
-    private func statusText(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 12.5, weight: .medium))
-            .foregroundStyle(primaryTextStyle)
-            .lineLimit(2)
-            .truncationMode(.tail)
-            .fixedSize(horizontal: false, vertical: true)
-    }
-
-    /// Renders partial text with the last 5 words dimmed.
-    private func partialText(_ text: String) -> some View {
-        let words = text.split(separator: " ", omittingEmptySubsequences: false)
-        let tailCount = 5
-        let splitIndex = max(0, words.count - tailCount)
-
-        let confirmed = words.prefix(splitIndex).joined(separator: " ")
-        let tail = words.suffix(from: splitIndex).joined(separator: " ")
-
-        return Group {
-            if confirmed.isEmpty {
-                Text(tail)
-                    .foregroundStyle(secondaryTextStyle)
-            } else {
-                Text(confirmed + " ")
-                    .foregroundStyle(primaryTextStyle)
-                + Text(tail)
-                    .foregroundStyle(secondaryTextStyle)
-            }
-        }
-        .font(.system(size: 12.5, weight: .medium))
-        .lineLimit(2)
-        .truncationMode(.tail)
-        .fixedSize(horizontal: false, vertical: true)
-    }
 }
 
 // MARK: - Background Modifier
 
-/// Pre-macOS 26: standard HUD material.
+/// Pre-macOS 26: standard HUD material, or the solid black pill.
 /// macOS 26 glass is hosted by AppKit via `NSGlassEffectView`.
 private struct OverlayBackgroundModifier: ViewModifier {
     let visualStyle: OverlayVisualStyle
-
-    private var pillShape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: OverlayLayout.glassCornerRadius, style: .continuous)
-    }
+    let shape: RoundedRectangle
 
     func body(content: Content) -> some View {
         switch visualStyle {
         case .glass:
             content
-                .background(
-                    pillShape
-                        .fill(.regularMaterial)
-                )
-                .overlay(
-                    pillShape
-                        .strokeBorder(Color.white.opacity(0.16), lineWidth: 1)
-                )
+                .background(shape.fill(.regularMaterial))
+                .overlay(shape.strokeBorder(Color.white.opacity(0.16), lineWidth: 1))
                 .shadow(color: .black.opacity(0.12), radius: 10, y: 4)
         case .black:
             content
-                .background(
-                    pillShape
-                        .fill(Color.black.opacity(0.82))
-                )
-                .overlay(
-                    pillShape
-                        .strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
-                )
+                .background(shape.fill(Color.black.opacity(0.82)))
+                .overlay(shape.strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
                 .shadow(color: .black.opacity(0.28), radius: 14, y: 8)
         }
     }

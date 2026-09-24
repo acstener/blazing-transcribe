@@ -119,6 +119,11 @@ let package = Package(
             path: "Tests/TranscriptionTests"
         ),
         .testTarget(
+            name: "OverlayTests",
+            dependencies: ["Overlay"],
+            path: "Tests/OverlayTests"
+        ),
+        .testTarget(
             name: "AppTests",
             dependencies: ["App"],
             path: "Tests/AppTests"
