@@ -103,14 +103,15 @@ struct BTTextField: View {
 
 struct BTBadge: View {
     let text: String
-    var color: Color = .purple
+    var color: Color = .btAccent
+    var textColor: Color = .white
 
     var body: some View {
         Text(text)
             .font(.btLabel)
             .padding(.horizontal, BTSpacing.sm)
             .padding(.vertical, 2)
-            .foregroundStyle(.white)
+            .foregroundStyle(textColor)
             .background(color)
             .clipShape(Capsule())
     }

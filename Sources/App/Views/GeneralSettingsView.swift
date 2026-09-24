@@ -38,7 +38,7 @@ struct GeneralSettingsView: View {
                         }
                         Spacer()
                         Toggle("Keep Blazing in the Dock", isOn: $showDockIcon)
-                            .labelsHidden().toggleStyle(.switch)
+                            .labelsHidden().toggleStyle(.btSwitch)
                     }
                     Divider()
                     DisclosureGroup("Recording indicator") {
@@ -55,7 +55,9 @@ struct GeneralSettingsView: View {
                 DisclosureGroup("Advanced & support") {
                     VStack(alignment: .leading, spacing: 16) {
                         Toggle("Restore the original text field after recording", isOn: $stickyFieldRestore)
+                            .toggleStyle(.btCheckbox)
                         Toggle("Convert spoken numbers to written form", isOn: $itnEnabled)
+                            .toggleStyle(.btCheckbox)
                         Divider()
                         HStack(spacing: 16) {
                             CheckForUpdatesButton()
@@ -115,7 +117,7 @@ private struct OverlayAppearanceSettingsCard: View {
                 Spacer()
                 Toggle("Show recording indicator", isOn: $isOverlayEnabled)
                     .labelsHidden()
-                    .toggleStyle(.switch)
+                    .toggleStyle(.btSwitch)
             }
             .onChange(of: isOverlayEnabled) { _, newValue in
                 OverlayPreferences.setEnabled(newValue)
@@ -172,9 +174,9 @@ private struct OverlayAppearanceOption: View {
             HStack(spacing: BTSpacing.sm) {
                 Image(systemName: icon)
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(isSelected ? Color.white : Color.btText)
+                    .foregroundStyle(isSelected ? Color.btAccentForeground : Color.btText)
                     .frame(width: 28, height: 28)
-                    .background(isSelected ? Color.accentColor : Color.btActiveBackground)
+                    .background(isSelected ? Color.btAccent : Color.btActiveBackground)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -192,7 +194,7 @@ private struct OverlayAppearanceOption: View {
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(Color.btAccent)
                 }
             }
             .padding(BTSpacing.sm)
@@ -200,7 +202,7 @@ private struct OverlayAppearanceOption: View {
             .clipShape(RoundedRectangle(cornerRadius: BTSpacing.buttonCornerRadius))
             .overlay(
                 RoundedRectangle(cornerRadius: BTSpacing.buttonCornerRadius)
-                    .strokeBorder(isSelected ? Color.accentColor.opacity(0.32) : Color.btBorder, lineWidth: 1)
+                    .strokeBorder(isSelected ? Color.btAccent.opacity(0.32) : Color.btBorder, lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
@@ -351,7 +353,7 @@ private struct PermissionsSettingsCard: View {
                 title: "Accessibility Access",
                 detail: "Needed to type transcribed text into other apps.",
                 badgeText: viewModel.isAccessibilityGranted ? "Granted" : "Missing",
-                badgeColor: viewModel.isAccessibilityGranted ? .green : .orange,
+                badgeColor: viewModel.isAccessibilityGranted ? .green : .btWarning,
                 settingsAction: openAccessibilitySettings
             )
 
@@ -423,18 +425,18 @@ private struct PermissionsSettingsCard: View {
 
     private var microphoneBadgeColor: Color {
         if !runtimeDiagnostics.isMicrophonePermissionReliable {
-            return .orange
+            return .btWarning
         }
 
         switch microphoneStatus {
         case .authorized:
             return .green
         case .notDetermined:
-            return .orange
+            return .btWarning
         case .denied, .restricted:
             return .red
         @unknown default:
-            return .orange
+            return .btWarning
         }
     }
 
@@ -538,7 +540,7 @@ private struct PermissionStatusRow: View {
                 }
             } trailing: {
                 HStack(spacing: BTSpacing.sm) {
-                    BTBadge(text: badgeText, color: badgeColor)
+                    BTBadge(text: badgeText, color: badgeColor, textColor: badgeColor == .btWarning ? .black.opacity(0.85) : .white)
 
                     HStack(spacing: 6) {
                         Text("Open Settings")

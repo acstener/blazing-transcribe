@@ -72,7 +72,7 @@ struct KeepMicActiveControl: View {
                 Spacer()
                 Toggle("Keep microphone active", isOn: keepMicReadyBinding)
                     .labelsHidden()
-                    .toggleStyle(.switch)
+                    .toggleStyle(.btSwitch)
             }
             .disabled(isForcedOnByAlwaysOnMode)
 
@@ -124,7 +124,7 @@ struct KeepMicActiveControl: View {
 
             Toggle("Keep microphone active", isOn: keepMicReadyBinding)
                 .labelsHidden()
-                .toggleStyle(.switch)
+                .toggleStyle(.btSwitch)
                 .disabled(isForcedOnByAlwaysOnMode)
         }
         .padding(.horizontal, BTSpacing.md)

@@ -191,7 +191,7 @@ private struct TryItStep: View {
                 }
             if hasVoiceResult {
                 Label("That’s your voice, in words.", systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(Color.accentColor).font(.btBody)
+                    .foregroundStyle(.green).font(.btBody)
             } else if case .error(let message) = viewModel.appState {
                 Text(message).font(.btCaption).foregroundStyle(Color.red)
             } else {
@@ -324,7 +324,7 @@ private struct AnimatedWaveform: View {
                     RoundedRectangle(cornerRadius: 2.5)
                         .fill(
                             LinearGradient(
-                                colors: [Color.accentColor, Color.accentColor.opacity(0.7)],
+                                colors: [Color.btAccent, Color.btAccent.opacity(0.7)],
                                 startPoint: .top,
                                 endPoint: .bottom
                             )
@@ -357,7 +357,7 @@ private struct StepIndicator: View {
         HStack(spacing: 6) {
             ForEach(0..<total, id: \.self) { i in
                 Capsule()
-                    .fill(i <= current ? Color.accentColor : Color.btBorder)
+                    .fill(i <= current ? Color.btAccent : Color.btBorder)
                     .frame(width: i == current ? 28 : 8, height: 4)
             }
         }
@@ -458,7 +458,7 @@ private struct PermissionRow: View {
                         .foregroundStyle(.green)
                 } else if showSpinner {
                     Circle()
-                        .fill(Color.accentColor.opacity(0.08))
+                        .fill(Color.btAccent.opacity(0.08))
                         .frame(width: 34, height: 34)
                     ProgressView()
                         .scaleEffect(0.55)
@@ -485,7 +485,7 @@ private struct PermissionRow: View {
                             RoundedRectangle(cornerRadius: 2)
                                 .fill(Color.btBorder)
                             RoundedRectangle(cornerRadius: 2)
-                                .fill(Color.accentColor)
+                                .fill(Color.btAccent)
                                 .frame(width: geo.size.width * max(0, min(1, progress)))
                         }
                     }
@@ -500,10 +500,10 @@ private struct PermissionRow: View {
                 Button(action: action) {
                     Text(actionLabel)
                         .font(.btLabel)
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(Color.btAccent)
                         .padding(.horizontal, BTSpacing.sm + 2)
                         .padding(.vertical, 5)
-                        .background(Color.accentColor.opacity(0.1))
+                        .background(Color.btAccent.opacity(0.1))
                         .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)

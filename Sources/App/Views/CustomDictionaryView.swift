@@ -29,7 +29,7 @@ struct CustomDictionaryView: View {
                                 BTBadge(text: termCountLabel, color: .green)
 
                                 if store.isGenerating {
-                                    BTBadge(text: "Adding", color: .orange)
+                                    BTBadge(text: "Adding", color: .btAccent, textColor: .btAccentForeground)
                                 }
                             }
 
@@ -71,7 +71,7 @@ struct CustomDictionaryView: View {
                             if let warningMessage = store.warningMessage {
                                 Text(warningMessage)
                                     .font(.btCaption)
-                                    .foregroundStyle(.orange)
+                                    .foregroundStyle(Color.btWarning)
                             }
 
                             if let errorMessage = store.errorMessage {

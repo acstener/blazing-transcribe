@@ -60,6 +60,8 @@ struct MainWindowView: View {
                 }
             }
         }
+        // Blazing is monochrome: native controls take the neutral accent, not the system one.
+        .tint(Color.btAccent)
         .task {
             await pollPermissionState()
         }
