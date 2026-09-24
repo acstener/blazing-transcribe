@@ -169,6 +169,13 @@ private struct TryItStep: View {
                 Text("Your first dictation").font(.btTitle)
                 Text("Hold \(viewModel.pttShortcutLabel), say a sentence, then release.")
                     .font(.btBody).foregroundStyle(Color.btSecondaryText)
+                ShortcutKeycaps(
+                    label: viewModel.pttShortcutLabel,
+                    isPressed: viewModel.isShortcutKeycapPressed,
+                    rejectionCount: viewModel.shortcutRejectionCount,
+                    size: .compact
+                )
+                .padding(.vertical, 4)
                 Text("Try: ‘A little less typing. A little more thinking.’")
                     .font(.btCaption).foregroundStyle(Color.btSecondaryText)
             }
