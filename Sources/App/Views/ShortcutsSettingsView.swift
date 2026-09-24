@@ -18,16 +18,11 @@ struct ShortcutsSettingsView: View {
                     .font(.btTitle)
                     .foregroundStyle(Color.btText)
 
-                // Shortcut Editing
                 VStack(alignment: .leading, spacing: BTSpacing.sm) {
-                    Text("Keyboard Shortcuts")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(Color.btText)
-
                     KeyboardSetupHelp()
 
                     ShortcutRecorderField(
-                        title: "Push-to-Talk",
+                        title: "Push-to-talk",
                         subtitle: pttSubtitle,
                         shortcut: shortcutLabel(for: shortcutState.pttShortcut, holdLabel: true),
                         captureHint: "Press any key, modifier key, or key combo now. Esc cancels.",
@@ -36,8 +31,8 @@ struct ShortcutsSettingsView: View {
                     )
 
                     ShortcutRecorderField(
-                        title: "Toggle Recording",
-                        subtitle: "One shortcut: press once to start, then press the same shortcut again to stop.",
+                        title: "Toggle recording",
+                        subtitle: "Press once to start, again to stop.",
                         shortcut: shortcutState.toggleShortcut.displayString,
                         captureHint: "Press any key, modifier key, or key combo now. Esc cancels.",
                         onCapture: updateToggleShortcut,
@@ -45,7 +40,7 @@ struct ShortcutsSettingsView: View {
                     )
 
                     ShortcutRecorderField(
-                        title: "Toggle Mic",
+                        title: "Toggle mic",
                         subtitle: "Turns listening on or off globally.",
                         shortcut: shortcutState.micToggleShortcut.displayString,
                         captureHint: "Press any key, modifier key, or key combo now. Esc cancels.",
@@ -55,13 +50,13 @@ struct ShortcutsSettingsView: View {
 
                     fixedShortcutField(
                         title: "Toggle LLM Cleanup",
-                        subtitle: "Switches between Off and LLM Cleanup.",
+                        subtitle: "Switches between Off and LLM Cleanup. Built in.",
                         shortcut: GlobalShortcut.defaultLLMCleanupToggle.displayString
                     )
 
                     fixedShortcutField(
-                        title: "Switch Mode",
-                        subtitle: "Always uses double-click fn to switch between Always-on and Manual.",
+                        title: "Switch mode",
+                        subtitle: "Flips between Always-on and Manual. Built in.",
                         shortcut: ShortcutSettingsState.defaultModeToggleLabel()
                     )
 

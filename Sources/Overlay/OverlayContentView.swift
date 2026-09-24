@@ -275,19 +275,19 @@ struct OverlayContentView: View {
         case .muted:
             statusText("Muted")
         case .listening:
-            statusText("Listening...")
+            statusText("Listening…")
         case .arming:
-            statusText("Activating mic...")
+            statusText("Activating mic…")
         case .recording:
             EmptyView()
         case .transcribing:
-            statusText("Transcribing...")
+            statusText("Transcribing…")
         case .hearing:
-            statusText("Hearing you...")
+            statusText("Hearing you…")
         case .downloading:
-            statusText("Downloading model...")
+            statusText("Downloading model…")
         case .loading:
-            statusText("Starting...")
+            statusText("Starting…")
         case .partial(let text, let confirmed):
             if confirmed {
                 statusText(text)

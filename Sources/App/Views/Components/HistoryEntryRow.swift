@@ -104,12 +104,16 @@ struct HistoryEntryRow: View {
             }
         } else {
             HStack(spacing: BTSpacing.sm) {
-                Circle()
-                    .fill(Color.red.opacity(0.5))
-                    .frame(width: 6, height: 6)
-                Text("Couldn’t transcribe")
+                // Empty/short captures are usually accidental taps, not errors — keep them quiet.
+                if !isBenignFailure {
+                    Circle()
+                        .fill(Color.red.opacity(0.5))
+                        .frame(width: 6, height: 6)
+                }
+                Text(failureText)
                     .font(.system(size: 13))
                     .foregroundStyle(Color.btSecondaryText)
+                    .italic(isBenignFailure)
 
                 if entry.audioFileName != nil {
                     Button("Retry") { onRetry() }
@@ -177,6 +181,17 @@ struct HistoryEntryRow: View {
     }
 
     // MARK: - Computed
+
+    private var isBenignFailure: Bool {
+        guard let message = entry.errorMessage else { return false }
+        return message == "No speech detected" || message == "Audio too short to transcribe"
+    }
+
+    private var failureText: String {
+        guard let message = entry.errorMessage?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !message.isEmpty else { return "Couldn’t transcribe" }
+        return isBenignFailure ? message : "Couldn’t transcribe · \(message)"
+    }
 
     private static let timeFormatter: DateFormatter = {
         let f = DateFormatter()

@@ -20,7 +20,7 @@ struct AudioSettingsView: View {
 
                 // Input device picker
                 VStack(alignment: .leading, spacing: BTSpacing.sm) {
-                    Text("Input Device")
+                    Text("Input device")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(Color.btText)
 
@@ -31,25 +31,24 @@ struct AudioSettingsView: View {
                                     .font(.btBody)
                                     .foregroundStyle(Color.btSecondaryText)
                             } else {
+                                // An empty preference means "follow the macOS default input".
+                                deviceRow("System default", detail: "Follows your Mac's input setting",
+                                          isSelected: selectedDevice.isEmpty) {
+                                    selectedDevice = ""
+                                    UserDefaults.standard.removeObject(forKey: "preferredInputDevice")
+                                    viewModel.audioCapture?.setInputDevice(0)
+                                }
                                 ForEach(cachedDevices, id: \.id) { device in
-                                    Button {
+                                    deviceRow(device.name, isSelected: selectedDevice == device.name) {
                                         selectedDevice = device.name
                                         UserDefaults.standard.set(device.name, forKey: "preferredInputDevice")
                                         viewModel.audioCapture?.setInputDevice(device.id)
-                                    } label: {
-                                        HStack {
-                                            Text(device.name)
-                                                .font(.btBody)
-                                                .foregroundStyle(Color.btText)
-                                            Spacer()
-                                            if selectedDevice == device.name {
-                                                Image(systemName: "checkmark")
-                                                    .foregroundStyle(Color.btText)
-                                            }
-                                        }
-                                        .padding(.vertical, BTSpacing.xs)
                                     }
-                                    .buttonStyle(.plain)
+                                }
+                                if !selectedDevice.isEmpty, !cachedDevices.contains(where: { $0.name == selectedDevice }) {
+                                    deviceRow(selectedDevice, detail: "Not connected — using the system default until it's back",
+                                              isSelected: true) {}
+                                        .disabled(true)
                                 }
                             }
                         }
@@ -58,7 +57,7 @@ struct AudioSettingsView: View {
 
                 // Audio level
                 VStack(alignment: .leading, spacing: BTSpacing.sm) {
-                    Text("Audio Level")
+                    Text("Audio level")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(Color.btText)
 
@@ -78,7 +77,7 @@ struct AudioSettingsView: View {
                         VStack(alignment: .leading, spacing: BTSpacing.md) {
                             VStack(alignment: .leading, spacing: BTSpacing.xs) {
                                 BTTrailingActionRow(horizontalAlignment: .center, horizontalMinWidth: 320) {
-                                    Text("Silence Timeout")
+                                    Text("Silence timeout")
                                         .font(.btBody)
                                         .foregroundStyle(Color.btText)
                                 } trailing: {
@@ -99,7 +98,7 @@ struct AudioSettingsView: View {
 
                             VStack(alignment: .leading, spacing: BTSpacing.xs) {
                                 BTTrailingActionRow(horizontalAlignment: .center, horizontalMinWidth: 320) {
-                                    Text("VAD Threshold")
+                                    Text("Voice detection threshold")
                                         .font(.btBody)
                                         .foregroundStyle(Color.btText)
                                 } trailing: {
@@ -129,6 +128,35 @@ struct AudioSettingsView: View {
                 print("[TabPerf] AudioSettingsView device query: \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t) * 1000))ms (\(cachedDevices.count) devices)")
             }
         }
+    }
+}
+
+private extension AudioSettingsView {
+    func deviceRow(_ name: String, detail: String? = nil, isSelected: Bool,
+                   action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: BTSpacing.sm) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(name)
+                        .font(.btBody.weight(isSelected ? .semibold : .regular))
+                        .foregroundStyle(Color.btText)
+                    if let detail {
+                        Text(detail)
+                            .font(.btCaption)
+                            .foregroundStyle(Color.btSecondaryText)
+                    }
+                }
+                Spacer()
+                Image(systemName: "checkmark")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.btText)
+                    .opacity(isSelected ? 1 : 0)
+            }
+            .padding(.vertical, BTSpacing.xs)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 

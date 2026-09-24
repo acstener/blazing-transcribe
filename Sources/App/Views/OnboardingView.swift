@@ -20,7 +20,7 @@ struct OnboardingView: View {
                 HStack {
                     StepIndicator(current: currentStep, total: totalSteps)
                     Spacer()
-                    Button(viewModel.isOnboardingPreviewActive ? "Back to Home" : "Set up later") { completeOnboarding(event: "onboardingSkipped", params: ["atStep": currentStep]) }
+                    Button(viewModel.isOnboardingPreviewActive ? "Back to Dictate" : "Set up later") { completeOnboarding(event: "onboardingSkipped", params: ["atStep": currentStep]) }
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(Color.btSecondaryText)
                         .buttonStyle(.plain)

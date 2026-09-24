@@ -203,7 +203,7 @@ struct ShortcutRecorderField: View {
     }
 
     private var shortcutValueBadge: some View {
-        Text(isRecording ? "Recording..." : shortcut)
+        Text(isRecording ? "Press keys…" : shortcut)
             .font(.btMono)
             .foregroundStyle(isRecording ? Color.btText : Color.btSecondaryText)
             .padding(.horizontal, BTSpacing.sm)
@@ -213,7 +213,7 @@ struct ShortcutRecorderField: View {
     }
 
     private var recordButton: some View {
-        BTButton(isRecording ? "Cancel" : "Change shortcut", style: .secondary) {
+        BTButton(isRecording ? "Cancel" : "Change", style: .secondary) {
             isRecording.toggle()
         }
     }

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct StatsView: View {
     @State private var refreshTrigger = false
+    @State private var showResetConfirmation = false
 
     private var stats: UsageStats { UsageStats.shared }
     private var hasData: Bool { stats.totalUtterances > 0 || stats.totalWords > 0 }
@@ -21,43 +22,42 @@ struct StatsView: View {
     }()
 
     var body: some View {
+        // Flexible columns so cards always fill the content width (no half-empty rows).
         let statCardColumns = [
-            GridItem(.adaptive(minimum: 220, maximum: 320), spacing: BTSpacing.md, alignment: .top)
+            GridItem(.flexible(), spacing: BTSpacing.md, alignment: .top),
+            GridItem(.flexible(), spacing: BTSpacing.md, alignment: .top)
         ]
         let performanceColumns = [
-            GridItem(.adaptive(minimum: 150, maximum: 240), spacing: BTSpacing.md, alignment: .top)
+            GridItem(.adaptive(minimum: 150), spacing: BTSpacing.md, alignment: .top)
         ]
 
         ScrollView {
             VStack(alignment: .leading, spacing: BTSpacing.lg) {
-                Text("Stats")
+                Text("Usage")
                     .font(.btTitle)
                     .foregroundStyle(Color.btText)
 
                 // Big stat cards
                 LazyVGrid(columns: statCardColumns, alignment: .leading, spacing: BTSpacing.md) {
                     StatCard(
-                        title: "Total Words",
+                        title: "Total words",
                         value: hasData ? formattedNumber(stats.totalWords) : dash,
                         icon: "text.word.spacing"
                     )
                     StatCard(
-                        title: "Utterances",
+                        title: "Dictations",
                         value: hasData ? formattedNumber(stats.totalUtterances) : dash,
                         icon: "waveform"
                     )
-                }
-
-                LazyVGrid(columns: statCardColumns, alignment: .leading, spacing: BTSpacing.md) {
                     StatCard(
-                        title: "Time Saved vs Typing",
+                        title: "Time saved vs typing",
                         value: hasData && stats.timeSavedVsTyping > 0
                             ? UsageStats.formatDuration(stats.timeSavedVsTyping)
                             : dash,
                         icon: "clock.arrow.circlepath"
                     )
                     StatCard(
-                        title: "Total Time Speaking",
+                        title: "Time speaking",
                         value: hasData ? UsageStats.formatDuration(stats.totalSpeechSeconds) : dash,
                         icon: "mic"
                     )
@@ -72,69 +72,73 @@ struct StatsView: View {
 
                         LazyVGrid(columns: performanceColumns, alignment: .leading, spacing: BTSpacing.md) {
                             statRow(
-                                label: "Speaking Rate",
+                                label: "Speaking rate",
                                 value: hasData && stats.speakingWPM > 0
-                                    ? "~\(Int(stats.speakingWPM)) WPM"
+                                    ? "~\(Int(stats.speakingWPM)) wpm"
                                     : dash
                             )
                             statRow(
-                                label: "Avg Transcription",
+                                label: "Avg transcription time",
                                 value: hasData && stats.avgTranscriptionTime > 0
-                                    ? "\(Int(stats.avgTranscriptionTime * 1000))ms per utterance"
+                                    ? "\(Int(stats.avgTranscriptionTime * 1000)) ms"
                                     : dash
                             )
                             statRow(
-                                label: "Pages of Text",
-                                value: hasData ? String(format: "%.1f pages", stats.pagesOfText) : dash
+                                label: "Pages of text",
+                                value: hasData ? String(format: "%.1f", stats.pagesOfText) : dash
                             )
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
 
-                BTCard {
-                    VStack(alignment: .leading, spacing: BTSpacing.md) {
-                        Text("Tracking")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(Color.btText)
+                LazyVGrid(columns: statCardColumns, alignment: .leading, spacing: BTSpacing.md) {
+                    BTCard {
+                        VStack(alignment: .leading, spacing: BTSpacing.md) {
+                            Text("Milestones")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundStyle(Color.btText)
 
-                        statRow(
-                            label: "Equivalent Text",
-                            value: hasData ? "That's \(stats.funEquivalent)" : dash
-                        )
-                        statRow(
-                            label: "Tracking Since",
-                            value: trackingSinceText
-                        )
+                            statRow(
+                                label: "Equivalent text",
+                                value: hasData ? "That's \(stats.funEquivalent)" : dash
+                            )
+                            statRow(
+                                label: "Tracking since",
+                                value: trackingSinceText
+                            )
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    BTCard {
+                        VStack(alignment: .leading, spacing: BTSpacing.md) {
+                            Text("Compared to alternatives")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundStyle(Color.btText)
+
+                            statRow(
+                                label: "Keypresses saved vs push-to-talk tools",
+                                value: hasData ? formattedNumber(stats.keypressesSaved) : dash
+                            )
+                            statRow(
+                                label: "Time saved vs cloud processing",
+                                value: hasData && stats.timeSavedVsShortcutTools > 0
+                                    ? UsageStats.formatDuration(stats.timeSavedVsShortcutTools)
+                                    : dash
+                            )
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
 
-                // Comparisons
-                BTCard {
-                    VStack(alignment: .leading, spacing: BTSpacing.md) {
-                        Text("Compared to Alternatives")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(Color.btText)
-
-                        statRow(
-                            label: "Keypresses saved vs PTT tools",
-                            value: hasData ? formattedNumber(stats.keypressesSaved) : dash
-                        )
-                        statRow(
-                            label: "Time saved vs cloud processing",
-                            value: hasData && stats.timeSavedVsShortcutTools > 0
-                                ? UsageStats.formatDuration(stats.timeSavedVsShortcutTools)
-                                : dash
-                        )
-                    }
-                }
-
-                // Reset
+                // Reset: quiet, and always confirmed — it can't be undone.
                 HStack {
                     Spacer()
-                    BTButton("Reset Stats", style: .destructive) {
-                        stats.reset()
-                        refreshTrigger.toggle()
+                    BTButton("Reset stats…", style: .secondary) {
+                        showResetConfirmation = true
                     }
+                    .disabled(!hasData)
                 }
             }
             .padding(BTSpacing.xl)
@@ -143,6 +147,14 @@ struct StatsView: View {
         }
         .btHideScrollIndicators()
         .frame(maxWidth: .infinity)
+        .confirmationDialog("Reset all usage stats?", isPresented: $showResetConfirmation) {
+            Button("Reset stats", role: .destructive) {
+                stats.reset()
+                refreshTrigger.toggle()
+            }
+        } message: {
+            Text("Word counts, time saved and milestones go back to zero. Your history is kept.")
+        }
         .onReceive(NotificationCenter.default.publisher(for: .usageStatsDidChange)) { _ in
             refreshTrigger.toggle()
         }

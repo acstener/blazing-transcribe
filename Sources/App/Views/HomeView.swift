@@ -145,13 +145,29 @@ struct DashboardView: View {
                         HStack {
                             Text(entry.timestamp, format: .dateTime.hour().minute()).font(.system(size: 11))
                             Spacer()
-                            Button(entry.text.rangeOfCharacter(from: .alphanumerics) == nil ? "View in history" : (copied ? "Copied" : "Copy")) {
-                                if entry.text.rangeOfCharacter(from: .alphanumerics) == nil {
-                                    selection.current = .history
-                                } else {
-                                    history.copyToClipboard(entry); copied = true
+                            if entry.text.rangeOfCharacter(from: .alphanumerics) == nil {
+                                Button("View in history") { selection.current = .history }
+                                    .font(.system(size: 12, weight: .medium)).buttonStyle(.plain)
+                            } else {
+                                Button {
+                                    history.copyToClipboard(entry)
+                                    withAnimation(.btSnappy) { copied = true }
+                                } label: {
+                                    // Reserve the wider label's width so the button never shifts.
+                                    ZStack(alignment: .trailing) {
+                                        Label("Copied", systemImage: "checkmark").hidden()
+                                        Label(copied ? "Copied" : "Copy", systemImage: copied ? "checkmark" : "doc.on.doc")
+                                            .contentTransition(.symbolEffect(.replace))
+                                    }
+                                    .labelStyle(.titleAndIcon)
                                 }
-                            }.font(.system(size: 12, weight: .medium)).buttonStyle(.plain)
+                                .font(.system(size: 12, weight: .medium)).buttonStyle(.plain)
+                                .task(id: copied) {
+                                    guard copied else { return }
+                                    try? await Task.sleep(for: .seconds(2))
+                                    withAnimation(.btSoft) { copied = false }
+                                }
+                            }
                         }.foregroundStyle(Color.btSecondaryText)
                     } else {
                         Text("A little less typing.")

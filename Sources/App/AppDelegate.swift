@@ -6140,7 +6140,7 @@ extension AppDelegate: GlobalShortcutDelegate {
             #if DEBUG
             print("[App] PTT ignored — engine not ready")
             #endif
-            if shouldShowPresetOverlay { overlayPanel.show(status: .error("Engine still loading...")) }
+            if shouldShowPresetOverlay { overlayPanel.show(status: .error("Engine still loading…")) }
             return
         }
 
@@ -6205,7 +6205,7 @@ extension AppDelegate: GlobalShortcutDelegate {
                 #if DEBUG
                 print("[App] Toggle ignored — engine not ready")
                 #endif
-                if shouldShowPresetOverlay { overlayPanel.show(status: .error("Engine still loading...")) }
+                if shouldShowPresetOverlay { overlayPanel.show(status: .error("Engine still loading…")) }
                 return
             }
             captureManualRecordingOrigin()

@@ -61,7 +61,7 @@ struct KeepMicActiveControl: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Keep Mic Active")
+                    Text("Keep mic active")
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(Color.btText)
                     Text(settingsSubtitle)
@@ -81,7 +81,7 @@ struct KeepMicActiveControl: View {
 
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Sleep When Idle")
+                        Text("Sleep when idle")
                             .font(.system(size: 13, weight: .medium))
                             .foregroundStyle(Color.btText)
                         Text(idleSleepSubtitle)
@@ -110,7 +110,7 @@ struct KeepMicActiveControl: View {
                     .foregroundStyle(Color.btSecondaryText)
                     .textCase(.uppercase)
 
-                Text("Keep Mic Active")
+                Text("Keep mic active")
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(Color.btText)
 
