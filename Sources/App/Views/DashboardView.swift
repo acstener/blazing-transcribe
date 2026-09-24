@@ -1,10 +1,10 @@
 import SwiftUI
 
-struct DashboardView: View {
+struct RecordingSettingsView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: BTSpacing.lg) {
-                // Mode card
+                Text("Dictation").font(.btTitle).frame(maxWidth: .infinity, alignment: .leading)
                 ModeToggleCard()
                     .btStaggered(index: 0)
 
@@ -28,7 +28,7 @@ struct DashboardView: View {
 
 // MARK: - Text Cleanup Card
 
-private struct TextCleanupCard: View {
+struct TextCleanupCard: View {
     @Environment(AppViewModel.self) private var viewModel
 
     var body: some View {

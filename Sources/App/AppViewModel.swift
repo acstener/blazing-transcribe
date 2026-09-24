@@ -49,6 +49,10 @@ final class AppViewModel {
     let audioLevelMeter = AudioLevelMeter()
     var isEngineLoading: Bool = false
     var hasStartedServices: Bool = false
+    var isCaptureRunning = false
+    var isSpeechEngineReady = false
+    var pttShortcutLabel = ShortcutConfig.shared.pttShortcut.displayString
+    var refreshEngineReadiness: (() -> Bool)?
     var isDeveloperTestingVisible: Bool = false
     var textCleanupMode: TextCleanupMode = TextCleanupMode.current
     var selectedLLMProviderModelID: String = LLMCleanupService.selectedCloudCleanupModelID()
@@ -66,6 +70,8 @@ final class AppViewModel {
     var currentEngineDownloadProgress: Double?
     var currentEngineDownloadCompletedFiles: Int = 0
     var currentEngineDownloadTotalFiles: Int = 0
+    var currentEngineDownloadCompletedBytes: Int64 = 0
+    var currentEngineDownloadTotalBytes: Int64 = 0
     var currentEngineDownloadRepoName: String?
 
     var isLLMCleanupAvailable: Bool {
@@ -98,6 +104,8 @@ final class AppViewModel {
     var onUpdateModeToggleShortcut: ((GlobalShortcut?) -> Void)?
     var onCheckForUpdates: (() -> Void)?
     var onCopyLogs: (() -> Void)?
+    var onCopyDiagnostics: (() -> Void)?
+    var requestedWindowSection: SidebarSection?
     var onOpenMainWindow: (() -> Void)?
     var onQuit: (() -> Void)?
     var onSetLowLatencyTuningEnabled: ((Bool) -> Void)?
@@ -125,6 +133,12 @@ final class AppViewModel {
     }
 
     func refreshPermissionState() {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--experience-preview") || Bundle.main.bundleIdentifier == "com.blazingtranscribe.experience-preview" { return }
+        #endif
+        isCaptureRunning = audioCapture?.isRunning ?? false
+        isSpeechEngineReady = refreshEngineReadiness?() ?? false
+        pttShortcutLabel = ShortcutConfig.shared.pttShortcut.displayString
         let accessibilityGranted = KeyboardInjector.hasAccessibilityPermission
         let microphoneGranted = AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
 

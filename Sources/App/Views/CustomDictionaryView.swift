@@ -9,7 +9,7 @@ struct CustomDictionaryView: View {
 
         ScrollView {
             VStack(alignment: .leading, spacing: BTSpacing.lg) {
-                Text("Custom Dictionary")
+                Text("Dictionary")
                     .font(.btTitle)
                     .foregroundStyle(Color.btText)
 
@@ -20,7 +20,7 @@ struct CustomDictionaryView: View {
 
                     BTCard {
                         VStack(alignment: .leading, spacing: BTSpacing.md) {
-                            Text("Aliases are generated on-device using phonetic rules. We're improving this over time.")
+                            Text("Help Blazing recognize names and words you use often.")
                                 .font(.btCaption)
                                 .foregroundStyle(Color.btSecondaryText)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -80,10 +80,10 @@ struct CustomDictionaryView: View {
                                     .foregroundStyle(.red)
                             }
 
-                            BTButton("Edit Aliases", style: .secondary) {
-                                store.openRawFile()
-                            }
-                            .disabled(store.isGenerating)
+                            DisclosureGroup("Advanced") {
+                                Button("Edit pronunciation aliases") { store.openRawFile() }
+                                    .disabled(store.isGenerating).padding(.top, 8)
+                            }.font(.btCaption).foregroundStyle(Color.btSecondaryText)
                         }
                     }
                 }

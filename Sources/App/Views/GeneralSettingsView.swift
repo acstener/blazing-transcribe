@@ -4,191 +4,96 @@ import AVFoundation
 import Overlay
 
 struct GeneralSettingsView: View {
+    @Environment(AppViewModel.self) private var viewModel
+    @Environment(TabSelection.self) private var selection
     @State private var stickyFieldRestore = !UserDefaults.standard.bool(forKey: "stickyFieldRestoreDisabled")
     @State private var itnEnabled = UserDefaults.standard.bool(forKey: "itnEnabled")
     @State private var showDockIcon = UserDefaults.standard.object(forKey: "showDockIcon") as? Bool ?? true
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: BTSpacing.lg) {
-                Text("Settings")
-                    .font(.btTitle)
-                    .foregroundStyle(Color.btText)
-
-                VStack(alignment: .leading, spacing: BTSpacing.sm) {
-                    Text("Recording")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(Color.btText)
-
-                    BTCard {
-                        KeepMicActiveControl(style: .settingsCard)
-                    }
+            VStack(alignment: .leading, spacing: 28) {
+                Text("General").font(.btTitle)
+                if Bundle.main.object(forInfoDictionaryKey: "BlazingLocalTestBuild") as? Bool == true {
+                    Text("Core experience · Local test build")
+                        .font(.btCaption).foregroundStyle(Color.btSecondaryText)
                 }
-
-                VStack(alignment: .leading, spacing: BTSpacing.sm) {
-                    Text("Overlay")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(Color.btText)
-
-                    BTCard {
-                        OverlayAppearanceSettingsCard()
-                    }
+                VStack(spacing: 0) {
+                    preferenceRow("Shortcut", detail: "Hold \(viewModel.pttShortcutLabel) to dictate", destination: "Shortcuts")
+                    Divider()
+                    preferenceRow("Microphone", detail: "Input device and recording level", destination: "Audio")
+                    Divider()
+                    preferenceRow("Dictation", detail: "Recording mode, standby and text cleanup", destination: "Dictation")
                 }
+                .padding(.horizontal, 20)
+                .background(Color.btBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
 
-                VStack(alignment: .leading, spacing: BTSpacing.sm) {
-                    Text("Dock")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(Color.btText)
-
-                    BTCard {
-                        HStack(alignment: .top) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Show icon in Dock")
-                                    .font(.system(size: 13, weight: .medium))
-                                    .foregroundStyle(Color.btText)
-                                Text("When off, Blazing Transcribe runs from the menu bar only — no Dock icon. Open this window anytime from the menu bar icon → Show Window.")
-                                    .font(.btCaption)
-                                    .foregroundStyle(Color.btSecondaryText)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                            Spacer()
-                            Toggle("", isOn: $showDockIcon)
-                                .labelsHidden()
-                                .toggleStyle(.switch)
+                VStack(alignment: .leading, spacing: 18) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Keep Blazing in the Dock").font(.system(size: 13, weight: .medium))
+                            Text("Always available from the menu bar, too.")
+                                .font(.btCaption).foregroundStyle(Color.btSecondaryText)
                         }
-                        .onChange(of: showDockIcon) { _, newValue in
-                            UserDefaults.standard.set(newValue, forKey: "showDockIcon")
-                            NotificationCenter.default.post(name: .dockIconPreferenceDidChange, object: nil)
-                        }
+                        Spacer()
+                        Toggle("Keep Blazing in the Dock", isOn: $showDockIcon)
+                            .labelsHidden().toggleStyle(.switch)
                     }
-                }
-
-                VStack(alignment: .leading, spacing: BTSpacing.sm) {
-                    Text("Permissions")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(Color.btText)
-
-                    BTCard {
-                        PermissionsSettingsCard()
+                    Divider()
+                    DisclosureGroup("Recording indicator") {
+                        OverlayAppearanceSettingsCard().padding(.top, 16)
                     }
-                }
+                    Divider()
+                    DisclosureGroup("Permissions") {
+                        PermissionsSettingsCard().padding(.top, 16)
+                    }
+                }.padding(20)
+                .background(Color.btBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
 
-                // MARK: - Hidden for launch
-                // VStack(alignment: .leading, spacing: BTSpacing.sm) {
-                //     Text("Onboarding")
-                //         .font(.system(size: 14, weight: .medium))
-                //         .foregroundStyle(Color.btText)
-                //     BTCard {
-                //         OnboardingSettingsCard()
-                //     }
-                // }
-
-                // VStack(alignment: .leading, spacing: BTSpacing.sm) {
-                //     Text("Testing")
-                //         .font(.system(size: 14, weight: .medium))
-                //         .foregroundStyle(Color.btText)
-                //     BTCard {
-                //         OnboardingTestingCard()
-                //     }
-                // }
-
-                // Updates
-                VStack(alignment: .leading, spacing: BTSpacing.sm) {
-                    Text("Updates")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(Color.btText)
-
-                    BTCard {
-                        BTTrailingActionRow(horizontalAlignment: .center, horizontalMinWidth: 360) {
-                            Text("Check for Updates")
-                                .font(.btBody)
-                                .foregroundStyle(Color.btText)
-                        } trailing: {
+                DisclosureGroup("Advanced & support") {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Toggle("Restore the original text field after recording", isOn: $stickyFieldRestore)
+                        Toggle("Convert spoken numbers to written form", isOn: $itnEnabled)
+                        Divider()
+                        HStack(spacing: 16) {
                             CheckForUpdatesButton()
+                            Button("Copy logs") { viewModel.onCopyLogs?() }
+                            Button("Copy diagnostics") { viewModel.onCopyDiagnostics?() }
                         }
-                    }
-                }
-
-                // Diagnostics
-                VStack(alignment: .leading, spacing: BTSpacing.sm) {
-                    Text("Diagnostics")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(Color.btText)
-
-                    BTCard {
-                        BTTrailingActionRow(horizontalAlignment: .center, horizontalMinWidth: 360) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Copy Logs")
-                                    .font(.btBody)
-                                    .foregroundStyle(Color.btText)
-                                Text("Copy the last 100 lines of app logs to your clipboard for debugging.")
-                                    .font(.btCaption)
-                                    .foregroundStyle(Color.btSecondaryText)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                        } trailing: {
-                            CopyLogsButton()
-                        }
-                    }
-                }
-
-                VStack(alignment: .leading, spacing: BTSpacing.sm) {
-                    Text("Experiments")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(Color.btText)
-
-                    BTCard {
-                        VStack(alignment: .leading, spacing: BTSpacing.md) {
-                            HStack(alignment: .top) {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Sticky Field Restore")
-                                        .font(.system(size: 13, weight: .medium))
-                                        .foregroundStyle(Color.btText)
-                                    Text("Remember the exact input field and window when recording starts, and restore focus to it when delivering text.")
-                                        .font(.btCaption)
-                                        .foregroundStyle(Color.btSecondaryText)
-                                        .fixedSize(horizontal: false, vertical: true)
-                                }
-                                Spacer()
-                                Toggle("", isOn: $stickyFieldRestore)
-                                    .labelsHidden()
-                                    .toggleStyle(.switch)
-                            }
-                            .onChange(of: stickyFieldRestore) { _, newValue in
-                                UserDefaults.standard.set(!newValue, forKey: "stickyFieldRestoreDisabled")
-                            }
-
-                            Divider()
-
-                            HStack(alignment: .top) {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Text Normalization (ITN)")
-                                        .font(.system(size: 13, weight: .medium))
-                                        .foregroundStyle(Color.btText)
-                                    Text("Convert spoken numbers and units to written form. \"one hundred dollars\" becomes \"$100\". Off by default.")
-                                        .font(.btCaption)
-                                        .foregroundStyle(Color.btSecondaryText)
-                                        .fixedSize(horizontal: false, vertical: true)
-                                }
-                                Spacer()
-                                Toggle("", isOn: $itnEnabled)
-                                    .labelsHidden()
-                                    .toggleStyle(.switch)
-                            }
-                            .onChange(of: itnEnabled) { _, newValue in
-                                UserDefaults.standard.set(newValue, forKey: "itnEnabled")
-                            }
-                        }
-                    }
-                }
+                    }.padding(.top, 16)
+                }.foregroundStyle(Color.btSecondaryText)
             }
-            .padding(BTSpacing.xl)
-            .frame(maxWidth: BTSpacing.contentMaxWidth, alignment: .leading)
+            .font(.system(size: 13)).foregroundStyle(Color.btText)
+            .padding(32).frame(maxWidth: 720, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .btHideScrollIndicators()
-        .frame(maxWidth: .infinity)
+        .onChange(of: showDockIcon) { _, value in
+            UserDefaults.standard.set(value, forKey: "showDockIcon")
+            NotificationCenter.default.post(name: .dockIconPreferenceDidChange, object: nil)
+        }
+        .onChange(of: stickyFieldRestore) { _, value in
+            UserDefaults.standard.set(!value, forKey: "stickyFieldRestoreDisabled")
+        }
+        .onChange(of: itnEnabled) { _, value in UserDefaults.standard.set(value, forKey: "itnEnabled") }
     }
 
+    private func preferenceRow(_ title: String, detail: String, destination: String) -> some View {
+        HStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text(title).font(.system(size: 13, weight: .semibold))
+                Text(detail).font(.btCaption).foregroundStyle(Color.btSecondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer()
+            Button("Change") { selection.settingsSection = destination }
+                .buttonStyle(.plain).font(.system(size: 12, weight: .medium))
+                .padding(.horizontal, 16).padding(.vertical, 7)
+                .background(Color.btActiveBackground).clipShape(RoundedRectangle(cornerRadius: 7))
+                .accessibilityLabel("Change \(title.lowercased())")
+        }.padding(.vertical, 18)
+    }
 }
 
 private struct OverlayAppearanceSettingsCard: View {
@@ -202,13 +107,13 @@ private struct OverlayAppearanceSettingsCard: View {
                     Text("Show recording overlay")
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(Color.btText)
-                    Text("Shows the floating status pill while recording and transcribing. Turn this off if you want transcription to run without the overlay.")
+                    Text("A small floating indicator while you dictate.")
                         .font(.btCaption)
                         .foregroundStyle(Color.btSecondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer()
-                Toggle("", isOn: $isOverlayEnabled)
+                Toggle("Show recording indicator", isOn: $isOverlayEnabled)
                     .labelsHidden()
                     .toggleStyle(.switch)
             }
@@ -217,7 +122,7 @@ private struct OverlayAppearanceSettingsCard: View {
                 NotificationCenter.default.post(name: .overlayEnabledDidChange, object: nil)
             }
 
-            Text("Choose the compact recording pill finish. Glass keeps the frosted fallback on older Macs, and Black swaps in a solid dark shell without changing overlay behavior when the overlay is enabled.")
+            Text("Choose the recording indicator’s appearance.")
                 .font(.btCaption)
                 .foregroundStyle(Color.btSecondaryText)
                 .fixedSize(horizontal: false, vertical: true)

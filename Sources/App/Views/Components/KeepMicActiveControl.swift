@@ -17,7 +17,7 @@ struct KeepMicActiveControl: View {
     private static let idleSleepMinuteOptions = [0, 5, 10, 15, 30, 60]
 
     private var isForcedOnByAlwaysOnMode: Bool {
-        viewModel.recordingMode == .alwaysOn
+        viewModel.recordingMode == .alwaysOn || viewModel.transcriptionPreset.usesRealtimeEngine
     }
 
     private var keepMicReadyBinding: Binding<Bool> {
@@ -70,11 +70,11 @@ struct KeepMicActiveControl: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer()
-                Toggle("", isOn: keepMicReadyBinding)
+                Toggle("Keep microphone active", isOn: keepMicReadyBinding)
                     .labelsHidden()
                     .toggleStyle(.switch)
             }
-            .allowsHitTesting(!isForcedOnByAlwaysOnMode)
+            .disabled(isForcedOnByAlwaysOnMode)
 
             if keepMicReadyEnabled {
                 Divider()
@@ -90,7 +90,7 @@ struct KeepMicActiveControl: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer()
-                    Picker("", selection: idleSleepMinutesBinding) {
+                    Picker("Sleep microphone after", selection: idleSleepMinutesBinding) {
                         ForEach(Self.idleSleepMinuteOptions, id: \.self) { minutes in
                             Text(minutes == 0 ? "Never" : "\(minutes) min").tag(minutes)
                         }
@@ -122,10 +122,10 @@ struct KeepMicActiveControl: View {
 
             Spacer(minLength: BTSpacing.md)
 
-            Toggle("", isOn: keepMicReadyBinding)
+            Toggle("Keep microphone active", isOn: keepMicReadyBinding)
                 .labelsHidden()
                 .toggleStyle(.switch)
-                .allowsHitTesting(!isForcedOnByAlwaysOnMode)
+                .disabled(isForcedOnByAlwaysOnMode)
         }
         .padding(.horizontal, BTSpacing.md)
         .padding(.vertical, 14)
@@ -142,19 +142,21 @@ struct KeepMicActiveControl: View {
 
     private var settingsSubtitle: String {
         if isForcedOnByAlwaysOnMode {
-            return "Always-on mode keeps the microphone active continuously. This switch only affects Manual mode."
+            return viewModel.recordingMode == .alwaysOn
+                ? "Hands-free keeps the microphone active until paused or asleep."
+                : "Experimental realtime requires an active microphone between recordings. Choose Stable in Experimental settings to turn standby off."
         }
-        return "Keeps the microphone warm for zero-latency manual recording. Turn it off to remove the orange dot between presses, at the cost of about 0.7s startup."
+        return "Keeps the microphone active between recordings for faster starts. macOS shows its mic indicator while active. Turn off to stop capture between recordings."
     }
 
     private var idleSleepSubtitle: String {
         guard micIdleSleepMinutes > 0 else {
-            return "Turn the mic fully off after a period without dictation, clearing the orange indicator until you use it again."
+            return "Turn the mic fully off after a period without dictation, until you use it again."
         }
         if isForcedOnByAlwaysOnMode {
             return "Mic turns off after \(micIdleSleepMinutes) min without dictation. Listening pauses while asleep — press a recording shortcut to wake it."
         }
-        return "Mic turns off after \(micIdleSleepMinutes) min without dictation. Your next recording starts about 0.7s slower, then stays warm again."
+        return "Mic turns off after \(micIdleSleepMinutes) min without dictation. Your next recording wakes it; starting may take a moment."
     }
 
     private var dashboardSubtitle: String {
@@ -162,8 +164,8 @@ struct KeepMicActiveControl: View {
             return "Always-on mode already keeps the mic live. Switch to Manual to control standby behavior."
         }
         if keepMicReadyEnabled {
-            return "Manual recording starts instantly. The mic indicator stays on between presses."
+            return "Faster starts. The microphone stays active between recordings."
         }
-        return "Turns the mic fully off between presses. Manual start takes about 0.7s longer."
+        return "Microphone off between recordings. Starting may take a moment."
     }
 }

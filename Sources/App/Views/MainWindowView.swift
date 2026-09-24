@@ -15,6 +15,7 @@ enum SidebarSection: String, CaseIterable {
 @Observable
 final class TabSelection {
     var current: SidebarSection = .dashboard
+    var settingsSection = "General"
 }
 
 struct MainWindowView: View {
@@ -32,13 +33,19 @@ struct MainWindowView: View {
                         SidebarView()
                             .frame(width: sidebarWidth(for: geometry.size.width))
 
-                        Divider()
-
                         DetailContainerView()
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .clipShape(RoundedRectangle(cornerRadius: 18))
+                            .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.btBorder.opacity(0.5), lineWidth: 1))
+                            .padding(.trailing, 12).padding(.vertical, 12)
                     }
                 }
                 .environment(tabSelection)
+                .onChange(of: viewModel.requestedWindowSection, initial: true) { _, destination in
+                    guard let destination else { return }
+                    tabSelection.current = destination
+                    viewModel.requestedWindowSection = nil
+                }
                 .frame(minWidth: 660, minHeight: 500)
                 .background(Color.btBackground)
                 .onReceive(NotificationCenter.default.publisher(for: .showHistoryTab)) { _ in
@@ -48,7 +55,8 @@ struct MainWindowView: View {
                     tabSelection.current = .dictionary
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .showStatsTab)) { _ in
-                    tabSelection.current = .stats
+                    tabSelection.settingsSection = "Usage"
+                    tabSelection.current = .general
                 }
             }
         }
@@ -58,14 +66,7 @@ struct MainWindowView: View {
     }
 
     private func sidebarWidth(for windowWidth: CGFloat) -> CGFloat {
-        switch windowWidth {
-        case ..<700:
-            return 208
-        case ..<840:
-            return 228
-        default:
-            return BTSpacing.sidebarWidth
-        }
+        windowWidth < 740 ? 164 : 184
     }
 
     @MainActor

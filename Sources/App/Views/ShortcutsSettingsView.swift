@@ -24,11 +24,7 @@ struct ShortcutsSettingsView: View {
                         .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(Color.btText)
 
-                    BTCard {
-                        Text("If your keyboard reserves fn, remap Push-to-Talk or Toggle Recording here. Toggle Recording always starts and stops with the same shortcut. With the default shortcuts, fn alone also stops an active toggle recording.")
-                            .font(.btCaption)
-                            .foregroundStyle(Color.btSecondaryText)
-                    }
+                    KeyboardSetupHelp()
 
                     ShortcutRecorderField(
                         title: "Push-to-Talk",

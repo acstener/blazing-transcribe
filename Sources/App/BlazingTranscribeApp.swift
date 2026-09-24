@@ -8,12 +8,23 @@ struct BlazingTranscribeApp: App {
         Window("Blazing Transcribe", id: "main") {
             MainWindowView()
                 .environment(appDelegate.viewModel)
-                // Keep the main app window on a fixed light appearance for now.
-                // Avoid NSApp.appearance here: the recording overlay manages its own look.
-                .btWindowAppearance(.aqua)
+
         }
         .windowStyle(.hiddenTitleBar)
-        .defaultSize(width: 960, height: 680)
+        .defaultSize(width: 880, height: 620)
         .windowResizability(.contentMinSize)
+        .commands {
+            #if DEBUG
+            CommandGroup(after: .appInfo) {
+                if Bundle.main.bundleIdentifier == "com.blazingtranscribe.experience-preview" {
+                    Button("Preview menu bar") { appDelegate.openExperiencePreviewMenu() }
+                }
+            }
+            #endif
+            CommandGroup(replacing: .appSettings) {
+                Button("Settings…") { appDelegate.showSettingsWindow() }
+                    .keyboardShortcut(",", modifiers: .command)
+            }
+        }
     }
 }

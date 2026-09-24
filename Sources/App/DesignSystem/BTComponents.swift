@@ -19,7 +19,7 @@ struct BTCard<Content: View>: View {
                 RoundedRectangle(cornerRadius: BTSpacing.cardCornerRadius)
                     .stroke(Color.btBorder, lineWidth: 1)
             )
-            .shadow(color: .black.opacity(0.03), radius: 4, y: 2)
+
     }
 }
 
@@ -57,7 +57,7 @@ struct BTButton: View {
 
     private var foregroundColor: Color {
         switch style {
-        case .primary: return .white
+        case .primary: return .btBackground
         case .secondary: return .btText
         case .destructive: return .white
         }

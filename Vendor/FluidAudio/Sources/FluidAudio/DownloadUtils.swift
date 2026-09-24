@@ -77,7 +77,9 @@ public class DownloadUtils {
     private static func postDownloadProgress(
         repo: Repo,
         completed: Int,
-        total: Int
+        total: Int,
+        completedBytes: Int64 = 0,
+        totalBytes: Int64 = 0
     ) {
         NotificationCenter.default.post(
             name: downloadProgressNotification,
@@ -86,8 +88,85 @@ public class DownloadUtils {
                 "repo": repo.folderName,
                 "completed": completed,
                 "total": total,
+                "completedBytes": completedBytes,
+                "totalBytes": totalBytes,
             ]
         )
+    }
+
+    /// Delegate-backed download that surfaces byte-level progress while a single
+    /// file downloads. Without this, progress only ticks once per completed file —
+    /// invisible for the multi-hundred-MB encoder weights that dominate a repo.
+    /// The async `download(for:delegate:)` convenience never delivers
+    /// `urlSession(_:downloadTask:didWriteData:…)`, so this uses a short-lived
+    /// session with a delegate-based task bridged into async/await.
+    private final class ProgressReportingDownloader: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
+        private let onBytesWritten: (Int64) -> Void
+        private var continuation: CheckedContinuation<(URL, URLResponse), Error>?
+        private let throttleInterval: TimeInterval = 0.25
+        private var lastReport = Date.distantPast
+
+        init(onBytesWritten: @escaping (Int64) -> Void) {
+            self.onBytesWritten = onBytesWritten
+        }
+
+        func download(
+            _ request: URLRequest, configuration: URLSessionConfiguration
+        ) async throws -> (URL, URLResponse) {
+            let session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
+            defer { session.finishTasksAndInvalidate() }
+            let task = session.downloadTask(with: request)
+            return try await withTaskCancellationHandler {
+                try await withCheckedThrowingContinuation { cont in
+                    self.continuation = cont
+                    task.resume()
+                }
+            } onCancel: {
+                task.cancel()
+            }
+        }
+
+        func urlSession(
+            _ session: URLSession,
+            downloadTask: URLSessionDownloadTask,
+            didWriteData bytesWritten: Int64,
+            totalBytesWritten: Int64,
+            totalBytesExpectedToWrite: Int64
+        ) {
+            // Serialized on the session's delegate queue.
+            let now = Date()
+            guard now.timeIntervalSince(lastReport) >= throttleInterval else { return }
+            lastReport = now
+            onBytesWritten(totalBytesWritten)
+        }
+
+        func urlSession(
+            _ session: URLSession, downloadTask: URLSessionDownloadTask,
+            didFinishDownloadingTo location: URL
+        ) {
+            // `location` is only valid inside this callback — move it out first.
+            let stable = FileManager.default.temporaryDirectory
+                .appendingPathComponent("fluidaudio-\(UUID().uuidString).download")
+            do {
+                try FileManager.default.moveItem(at: location, to: stable)
+                guard let response = downloadTask.response else {
+                    throw HuggingFaceDownloadError.invalidResponse
+                }
+                continuation?.resume(returning: (stable, response))
+            } catch {
+                continuation?.resume(throwing: error)
+            }
+            continuation = nil
+        }
+
+        func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+            // Success already resumed in didFinishDownloadingTo; this only fires
+            // the continuation for failures (including cancellation).
+            if let error {
+                continuation?.resume(throwing: error)
+                continuation = nil
+            }
+        }
     }
 
     public static func loadModels(
@@ -102,7 +181,20 @@ public class DownloadUtils {
             return try await loadModelsOnce(
                 repo, modelNames: modelNames,
                 directory: directory, computeUnits: computeUnits, variant: variant)
+        } catch let error as HuggingFaceDownloadError {
+            // Network-shaped failure: keep the cache. Completed files are skipped
+            // on the next attempt, so wiping here would throw away hundreds of MB
+            // and force flaky connections to start over from zero every time.
+            logger.warning("Download failed, keeping partial cache: \(error.localizedDescription)")
+            throw error
+        } catch let error as URLError {
+            logger.warning("Download failed, keeping partial cache: \(error.localizedDescription)")
+            throw error
+        } catch is CancellationError {
+            throw CancellationError()
         } catch {
+            // Anything else means the files are on disk but CoreML couldn't load
+            // them — treat as corrupt cache: wipe and re-download once.
             logger.warning("First load failed: \(error.localizedDescription)")
             logger.info("Deleting cache and re-downloading…")
             let repoPath = directory.appendingPathComponent(repo.folderName)
@@ -220,6 +312,16 @@ public class DownloadUtils {
         // Get all files recursively using HuggingFace API
         var filesToDownload: [(path: String, size: Int)] = []
 
+        // A required entry is usually a directory bundle ("Encoder.mlmodelc/") but can
+        // be a plain file ("vocab.json") — the trailing-slash pattern never
+        // prefix-matches a file path, so also compare with the slash stripped.
+        func matchesRequiredEntry(_ itemPath: String) -> Bool {
+            patterns.contains { itemPath.hasPrefix($0) || String($0.dropLast()) == itemPath }
+        }
+        func isOnPathToRequiredEntry(_ itemPath: String) -> Bool {
+            patterns.contains { itemPath.hasPrefix($0) || $0.hasPrefix(itemPath + "/") }
+        }
+
         func listDirectory(path: String) async throws {
             let apiPath = path.isEmpty ? "tree/main" : "tree/main/\(path)"
             let dirURL = try ModelRegistry.apiModels(repo.remotePath, apiPath)
@@ -244,33 +346,29 @@ public class DownloadUtils {
                 else { continue }
 
                 if itemType == "directory" {
-                    // For subPath repos, only process paths within the subPath
-                    let shouldProcess: Bool
-                    if let sub = subPath {
-                        shouldProcess =
-                            itemPath == sub || itemPath.hasPrefix("\(sub)/")
-                            || patterns.contains { itemPath.hasPrefix($0) || $0.hasPrefix(itemPath + "/") }
-                    } else {
-                        shouldProcess =
-                            patterns.isEmpty
-                            || patterns.contains { itemPath.hasPrefix($0) || $0.hasPrefix(itemPath + "/") }
-                    }
-                    if shouldProcess {
+                    // Only descend toward required entries — this skips sibling
+                    // bundles the app never loads (.mlpackage exports, unused
+                    // preprocessor variants).
+                    if patterns.isEmpty || isOnPathToRequiredEntry(itemPath) {
                         try await listDirectory(path: itemPath)
                     }
                 } else if itemType == "file" {
-                    // For subPath repos, only include files within the subPath
                     let shouldInclude: Bool
                     if let sub = subPath {
-                        let isInSubPath = itemPath.hasPrefix("\(sub)/")
-                        let matchesPattern =
-                            patterns.isEmpty || patterns.contains { itemPath.hasPrefix($0) }
-                        let isMetadata = itemPath.hasSuffix(".json") || itemPath.hasSuffix(".model")
-                        shouldInclude = isInSubPath && (matchesPattern || isMetadata)
-                    } else {
+                        // Only files that belong to a required entry. The old
+                        // .json/.model catch-all also pulled .mlpackage manifests
+                        // and metadata for bundles the app never loads.
                         shouldInclude =
-                            patterns.isEmpty || patterns.contains { itemPath.hasPrefix($0) }
-                            || itemPath.hasSuffix(".json") || itemPath.hasSuffix(".txt")
+                            itemPath.hasPrefix("\(sub)/")
+                            && (patterns.isEmpty || matchesRequiredEntry(itemPath))
+                    } else {
+                        // Top-level .json/.txt catch-all keeps vocab/config/tokenizer
+                        // files that live beside the model bundles.
+                        let isTopLevelMetadata =
+                            !itemPath.contains("/")
+                            && (itemPath.hasSuffix(".json") || itemPath.hasSuffix(".txt"))
+                        shouldInclude =
+                            patterns.isEmpty || matchesRequiredEntry(itemPath) || isTopLevelMetadata
                     }
                     if shouldInclude {
                         let fileSize = item["size"] as? Int ?? -1
@@ -292,12 +390,19 @@ public class DownloadUtils {
             return repoPath.appendingPathComponent(localPath)
         }
 
-        var completedFiles = filesToDownload.reduce(into: 0) { partial, file in
+        let totalFileCount = filesToDownload.count
+        let totalBytes = filesToDownload.reduce(Int64(0)) { $0 + Int64(max($1.size, 0)) }
+        var completedFiles = 0
+        var completedBytes: Int64 = 0
+        for file in filesToDownload {
             if FileManager.default.fileExists(atPath: destinationPath(for: file.path).path) {
-                partial += 1
+                completedFiles += 1
+                completedBytes += Int64(max(file.size, 0))
             }
         }
-        postDownloadProgress(repo: repo, completed: completedFiles, total: filesToDownload.count)
+        postDownloadProgress(
+            repo: repo, completed: completedFiles, total: totalFileCount,
+            completedBytes: completedBytes, totalBytes: totalBytes)
 
         // Download each file
         for (index, file) in filesToDownload.enumerated() {
@@ -318,7 +423,9 @@ public class DownloadUtils {
             if file.size == 0 {
                 FileManager.default.createFile(atPath: destPath.path, contents: Data())
                 completedFiles += 1
-                postDownloadProgress(repo: repo, completed: completedFiles, total: filesToDownload.count)
+                postDownloadProgress(
+                    repo: repo, completed: completedFiles, total: totalFileCount,
+                    completedBytes: completedBytes, totalBytes: totalBytes)
                 continue
             }
 
@@ -328,7 +435,18 @@ public class DownloadUtils {
             let fileURL = try ModelRegistry.resolveModel(repo.remotePath, encodedFilePath)
             let request = authorizedRequest(url: fileURL)
 
-            let (tempFileURL, response) = try await sharedSession.download(for: request)
+            // Snapshot progress so the delegate (called on the session queue)
+            // never races the loop's mutable counters.
+            let filesDoneSoFar = completedFiles
+            let bytesDoneSoFar = completedBytes
+            let downloader = ProgressReportingDownloader { totalBytesWritten in
+                postDownloadProgress(
+                    repo: repo, completed: filesDoneSoFar, total: totalFileCount,
+                    completedBytes: bytesDoneSoFar + totalBytesWritten, totalBytes: totalBytes)
+            }
+
+            let (tempFileURL, response) = try await downloader.download(
+                request, configuration: sharedSession.configuration)
 
             guard let httpResponse = response as? HTTPURLResponse else {
                 throw HuggingFaceDownloadError.invalidResponse
@@ -353,7 +471,10 @@ public class DownloadUtils {
             }
             try FileManager.default.moveItem(at: tempFileURL, to: destPath)
             completedFiles += 1
-            postDownloadProgress(repo: repo, completed: completedFiles, total: filesToDownload.count)
+            completedBytes += Int64(max(file.size, 0))
+            postDownloadProgress(
+                repo: repo, completed: completedFiles, total: totalFileCount,
+                completedBytes: completedBytes, totalBytes: totalBytes)
 
             if (index + 1) % 10 == 0 || index == filesToDownload.count - 1 {
                 logger.info("Downloaded \(index + 1)/\(filesToDownload.count) files")

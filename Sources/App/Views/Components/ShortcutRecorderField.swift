@@ -213,7 +213,7 @@ struct ShortcutRecorderField: View {
     }
 
     private var recordButton: some View {
-        BTButton(isRecording ? "Cancel" : "Record", style: .secondary) {
+        BTButton(isRecording ? "Cancel" : "Change shortcut", style: .secondary) {
             isRecording.toggle()
         }
     }

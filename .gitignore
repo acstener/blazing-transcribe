@@ -20,3 +20,8 @@ Sources/App/AnalyticsSecrets.swift
 # Local scratch
 tmp/
 build/
+
+# Local experiments and planning
+experiments/
+__pycache__/
+.scratch/

@@ -23,27 +23,15 @@ struct ModeToggleCard: View {
                     }
                 }
 
-                Divider()
 
-                VStack(alignment: .leading, spacing: BTSpacing.sm) {
-                    Text("Speed")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(Color.btSecondaryText)
-                        .textCase(.uppercase)
-
-                    HStack(spacing: BTSpacing.sm) {
-                        stableSpeedOption
-                        turboSpeedOption
-                    }
-                }
             }
         }
     }
 
     private var manualModeSubtitle: String {
         viewModel.transcriptionPreset == .powerUserFastest
-            ? "Hold fn for live dictation"
-            : "Hold fn to record"
+            ? "Hold \(viewModel.pttShortcutLabel) for live dictation"
+            : "Hold \(viewModel.pttShortcutLabel) to record"
     }
 }
 
@@ -111,7 +99,7 @@ private extension ModeToggleCard {
         ModeOption(
             icon: "waveform",
             title: "Always-on",
-            subtitle: "VAD auto-detects speech",
+            subtitle: "Speak without holding a key",
             isSelected: viewModel.recordingMode == .alwaysOn
         ) {
             viewModel.onSwitchRecordingMode?(.alwaysOn)
@@ -129,25 +117,4 @@ private extension ModeToggleCard {
         }
     }
 
-    var stableSpeedOption: some View {
-        ModeOption(
-            icon: "checkmark.shield.fill",
-            title: "Stable",
-            subtitle: "Accurate, reliable",
-            isSelected: viewModel.transcriptionPreset == .stable
-        ) {
-            viewModel.onSwitchPreset?(.stable)
-        }
-    }
-
-    var turboSpeedOption: some View {
-        ModeOption(
-            icon: "hare.fill",
-            title: "Turbo",
-            subtitle: "Fastest, realtime",
-            isSelected: viewModel.transcriptionPreset == .powerUserFastest
-        ) {
-            viewModel.onSwitchPreset?(.powerUserFastest)
-        }
-    }
 }

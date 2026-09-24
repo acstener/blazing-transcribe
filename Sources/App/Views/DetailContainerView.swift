@@ -8,11 +8,11 @@ struct DetailContainerView: View {
             LazyTab(.dictionary) { CustomDictionaryView() }
             LazyTab(.shortcuts) { ShortcutsSettingsView() }
             LazyTab(.audio) { AudioSettingsView() }
-            LazyTab(.general) { GeneralSettingsView() }
+            LazyTab(.general) { SettingsHubView() }
             LazyTab(.stats) { StatsView() }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.btBackground.opacity(0.5))
+        .background(Color.btCardBackground)
     }
 }
 
@@ -54,6 +54,7 @@ private struct TabVisibility: ViewModifier {
         content
             .opacity(isSelected ? 1 : 0)
             .allowsHitTesting(isSelected)
+            .accessibilityHidden(!isSelected)
     }
 }
 

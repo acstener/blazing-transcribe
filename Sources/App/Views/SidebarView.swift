@@ -5,93 +5,70 @@ struct SidebarView: View {
     @Namespace private var namespace
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Header — custom title bar area
-            HStack(spacing: BTSpacing.sm) {
-                // Leave room for traffic light buttons
-                Color.clear.frame(width: 60, height: 1)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                BlazingMark().fill(Color.btText).frame(width: 20, height: 26).accessibilityHidden(true)
+                Text("Blazing").font(.system(size: 18, weight: .semibold))
+            }
+            .foregroundStyle(Color.btText)
+            .padding(.horizontal, 22).padding(.top, 48).padding(.bottom, 32)
+
+            if selection.current == .general {
+                VStack(alignment: .leading, spacing: 0) {
+                    Button {
+                        selection.current = .dashboard
+                    } label: {
+                        Label("Back to Dictate", systemImage: "chevron.left")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(Color.btSecondaryText)
+                            .frame(maxWidth: .infinity, minHeight: 32, alignment: .leading)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 24)
+
+                    Text("SETTINGS")
+                        .font(.system(size: 10, weight: .semibold))
+                        .tracking(1.2)
+                        .foregroundStyle(Color.btSecondaryText)
+                        .padding(.horizontal, 12)
+                        .padding(.bottom, 12)
+
+                    VStack(spacing: 5) {
+                        settingsItem("General", icon: "gearshape")
+                        settingsItem("Dictation", icon: "text.alignleft")
+                        settingsItem("Shortcuts", icon: "command")
+                        settingsItem("Audio", icon: "mic")
+                        settingsItem("Usage", icon: "chart.bar")
+                    }
+                    Spacer()
+                    settingsItem("Experimental", icon: "flask")
+                        .padding(.bottom, 20)
+                }
+                .padding(.horizontal, 12)
+            } else {
+                VStack(spacing: 5) {
+                    BTSidebarItem(title: "Dictate", icon: "waveform", isSelected: selection.current == .dashboard,
+                                  namespace: namespace) { selection.current = .dashboard }
+                    BTSidebarItem(title: "History", icon: "clock", isSelected: selection.current == .history,
+                                  namespace: namespace) { selection.current = .history }
+                    BTSidebarItem(title: "Dictionary", icon: "text.book.closed", isSelected: selection.current == .dictionary,
+                                  namespace: namespace) { selection.current = .dictionary }
+                }.padding(.horizontal, 12)
                 Spacer()
+                BTSidebarItem(title: "Settings", icon: "gearshape", isSelected: false,
+                              namespace: namespace) { selection.current = .general }
+                    .padding(.horizontal, 12).padding(.bottom, 20)
             }
-            .frame(height: 52)
-
-            HStack(spacing: BTSpacing.sm) {
-                Image(systemName: "waveform")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Color.btText)
-                Text("Blazing Transcribe")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color.btText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.85)
-                Spacer()
-            }
-            .padding(.horizontal, BTSpacing.md)
-            .padding(.bottom, BTSpacing.md)
-
-            // Navigation items
-            VStack(spacing: 2) {
-                BTSidebarItem(
-                    title: "Dashboard",
-                    icon: "square.grid.2x2",
-                    isSelected: selection.current == .dashboard,
-                    namespace: namespace
-                ) { selection.current = .dashboard }
-
-                BTSidebarItem(
-                    title: "History",
-                    icon: "clock.arrow.circlepath",
-                    isSelected: selection.current == .history,
-                    namespace: namespace
-                ) { selection.current = .history }
-
-                BTSidebarItem(
-                    title: "Dictionary",
-                    icon: "book.closed",
-                    isSelected: selection.current == .dictionary,
-                    namespace: namespace
-                ) { selection.current = .dictionary }
-
-                BTSidebarItem(
-                    title: "Shortcuts",
-                    icon: "keyboard",
-                    isSelected: selection.current == .shortcuts,
-                    namespace: namespace
-                ) { selection.current = .shortcuts }
-
-                BTSidebarItem(
-                    title: "Audio",
-                    icon: "speaker.wave.2",
-                    isSelected: selection.current == .audio,
-                    namespace: namespace
-                ) { selection.current = .audio }
-
-                BTSidebarItem(
-                    title: "Settings",
-                    icon: "gearshape",
-                    isSelected: selection.current == .general,
-                    namespace: namespace
-                ) { selection.current = .general }
-
-                Divider()
-                    .padding(.vertical, BTSpacing.sm)
-                    .padding(.horizontal, BTSpacing.md)
-
-                BTSidebarItem(
-                    title: "Stats",
-                    icon: "chart.bar",
-                    isSelected: selection.current == .stats,
-                    namespace: namespace
-                ) { selection.current = .stats }
-            }
-            .padding(.horizontal, BTSpacing.sm)
-
-            Spacer()
-
-            // Bottom quick toggle intentionally hidden to keep the sidebar quieter for now.
-            // ModeQuickToggle()
-            //     .padding(BTSpacing.md)
         }
         .background(Color.btBackground)
+    }
+
+    private func settingsItem(_ title: String, icon: String) -> some View {
+        BTSidebarItem(title: title, icon: icon,
+                      isSelected: selection.settingsSection == title,
+                      namespace: namespace) { selection.settingsSection = title }
     }
 }
 

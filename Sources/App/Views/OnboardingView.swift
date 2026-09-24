@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+import HotkeyModule
 
 // MARK: - Main Onboarding Router
 
@@ -19,7 +20,7 @@ struct OnboardingView: View {
                 HStack {
                     StepIndicator(current: currentStep, total: totalSteps)
                     Spacer()
-                    Button("Skip") { completeOnboarding(event: "onboardingSkipped", params: ["atStep": currentStep]) }
+                    Button(viewModel.isOnboardingPreviewActive ? "Back to Home" : "Set up later") { completeOnboarding(event: "onboardingSkipped", params: ["atStep": currentStep]) }
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(Color.btSecondaryText)
                         .buttonStyle(.plain)
@@ -27,8 +28,7 @@ struct OnboardingView: View {
                 .padding(.horizontal, BTSpacing.xl)
                 .padding(.top, BTSpacing.lg)
 
-                Spacer()
-
+                ScrollView {
                 Group {
                     switch currentStep {
                     case 0: WelcomeStep(onContinue: advanceStep)
@@ -39,12 +39,19 @@ struct OnboardingView: View {
                     })
                     }
                 }
-                .frame(maxWidth: 520)
-
-                Spacer()
+                .frame(maxWidth: 560)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, BTSpacing.lg)
+                }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onAppear {
+            if viewModel.isOnboardingPreviewActive {
+                currentStep = viewModel.isSpeechEngineReady && !viewModel.isEngineLoading
+                    && viewModel.isAccessibilityGranted && viewModel.isMicrophoneGranted ? 2 : 1
+            }
+        }
     }
 
     private func advanceStep() {
@@ -77,7 +84,7 @@ private struct WelcomeStep: View {
                     .foregroundStyle(Color.btText)
                     .btStaggered(index: 1)
 
-                Text("The fastest local transcription tool for Mac.")
+                Text("Turn your voice into text in any app.")
                     .font(.btBody)
                     .foregroundStyle(Color.btSecondaryText)
                     .btStaggered(index: 2)
@@ -108,7 +115,7 @@ private struct SetupStep: View {
                 .foregroundStyle(Color.btText)
                 .btStaggered(index: 0)
 
-            Text("We need a couple of permissions and a small model download.")
+            Text("We need a couple of permissions and a one-time speech model download (about 500 MB).")
                 .font(.btBody)
                 .foregroundStyle(Color.btSecondaryText)
                 .multilineTextAlignment(.center)
@@ -117,8 +124,14 @@ private struct SetupStep: View {
             PermissionChecklist(showDescriptions: true)
                 .btStaggered(index: 2)
 
+            if case .error(let message) = viewModel.appState {
+                Text(message).font(.btCaption).foregroundStyle(.red)
+                BTButton("Retry setup", style: .secondary) { viewModel.onReloadEngine?() }
+            } else if !viewModel.isEngineLoading && !viewModel.isSpeechEngineReady {
+                BTButton("Prepare speech model", style: .secondary) { viewModel.onReloadEngine?() }
+            }
+
             PermissionGatedButton(title: "Continue") {
-                viewModel.onSwitchRecordingMode?(.manual)
                 onContinue()
             }
             .btStaggered(index: 3)
@@ -126,6 +139,8 @@ private struct SetupStep: View {
         .padding(BTSpacing.xl)
         .onAppear {
             viewModel.onTrackOnboardingEvent?("onboardingStep1Setup", [:])
+            viewModel.onSwitchRecordingMode?(.manual)
+            viewModel.onSwitchPreset?(.stable)
             // Trigger engine download if models were cleared and no download is already running
             if viewModel.isEngineLoading && viewModel.currentEngineDownloadProgress == nil {
                 viewModel.onReloadEngine?()
@@ -141,148 +156,95 @@ private struct TryItStep: View {
     @Environment(AppViewModel.self) private var viewModel
     @FocusState private var isFieldFocused: Bool
     @State private var transcribedText = ""
-    @State private var hasTrackedFirstTranscription = false
+    @State private var hasVoiceResult = false
+    @State private var shortcutState = ShortcutSettingsState()
+    @State private var showShortcutEditor = false
 
     private var isRecording: Bool { viewModel.appState == .recording }
-    private var hasResult: Bool { !transcribedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-    private var isTurbo: Bool { viewModel.transcriptionPreset == .powerUserFastest }
-
-    private var instructionText: String {
-        if viewModel.recordingMode == .alwaysOn {
-            return "Start speaking \u{2014} it\u{2019}ll pick up your voice automatically."
-        }
-        if isTurbo {
-            return "Hold fn and start speaking. Text appears as you talk."
-        }
-        return "Hold fn, say something, release."
-    }
+    private var isBusy: Bool { isRecording || viewModel.appState == .transcribing }
 
     var body: some View {
-        VStack(spacing: BTSpacing.md) {
-            Text("Try it out")
-                .font(.btTitle)
-                .foregroundStyle(Color.btText)
-                .btStaggered(index: 0)
-
-            // Mode + Speed picker
-            BTCard {
-                VStack(alignment: .leading, spacing: BTSpacing.md) {
-                    VStack(alignment: .leading, spacing: BTSpacing.sm) {
-                        Text("Mode")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(Color.btSecondaryText)
-                            .textCase(.uppercase)
-
-                        HStack(spacing: BTSpacing.sm) {
-                            ModeOption(
-                                icon: "mic.fill",
-                                title: "Manual",
-                                subtitle: "Hold fn to record",
-                                isSelected: viewModel.recordingMode == .manual
-                            ) {
-                                viewModel.onSwitchRecordingMode?(.manual)
-                            }
-
-                            ModeOption(
-                                icon: "waveform",
-                                title: "Always-on",
-                                subtitle: "VAD auto-detects speech",
-                                isSelected: viewModel.recordingMode == .alwaysOn
-                            ) {
-                                viewModel.onSwitchRecordingMode?(.alwaysOn)
-                            }
-                        }
-                    }
-
-                    Divider()
-
-                    VStack(alignment: .leading, spacing: BTSpacing.sm) {
-                        Text("Speed")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(Color.btSecondaryText)
-                            .textCase(.uppercase)
-
-                        HStack(spacing: BTSpacing.sm) {
-                            ModeOption(
-                                icon: "checkmark.shield.fill",
-                                title: "Stable",
-                                subtitle: "Accurate, reliable",
-                                isSelected: viewModel.transcriptionPreset == .stable
-                            ) {
-                                viewModel.onSwitchPreset?(.stable)
-                            }
-
-                            ModeOption(
-                                icon: "hare.fill",
-                                title: "Turbo",
-                                subtitle: "Fastest, realtime",
-                                isSelected: viewModel.transcriptionPreset == .powerUserFastest
-                            ) {
-                                viewModel.onSwitchPreset?(.powerUserFastest)
-                            }
-                        }
-                    }
-                }
+        VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Your first dictation").font(.btTitle)
+                Text("Hold \(viewModel.pttShortcutLabel), say a sentence, then release.")
+                    .font(.btBody).foregroundStyle(Color.btSecondaryText)
+                Text("Try: ‘A little less typing. A little more thinking.’")
+                    .font(.btCaption).foregroundStyle(Color.btSecondaryText)
             }
-            .btStaggered(index: 1)
-
-            // Instruction text adapts to mode + speed
-            Text(instructionText)
-                .font(.btBody)
-                .foregroundStyle(Color.btSecondaryText)
-                .multilineTextAlignment(.center)
-
-            // Real text field — keyboard injector types directly into this
             TextEditor(text: $transcribedText)
                 .font(.btBody)
-                .foregroundStyle(Color.btText)
                 .focused($isFieldFocused)
                 .scrollContentBackground(.hidden)
-                .scrollDisabled(true)
-                .frame(maxWidth: .infinity)
-                .frame(minHeight: 100, maxHeight: 140)
-                .padding(BTSpacing.sm)
+                .frame(height: 120)
+                .padding(12)
                 .background(Color.btCardBackground)
-                .clipShape(RoundedRectangle(cornerRadius: BTSpacing.cardCornerRadius))
-                .overlay(
-                    RoundedRectangle(cornerRadius: BTSpacing.cardCornerRadius)
-                        .stroke(
-                            isRecording ? Color.accentColor.opacity(0.6) : (hasResult ? Color.accentColor.opacity(0.5) : Color.btBorder),
-                            lineWidth: isRecording || hasResult ? 1.5 : 1
-                        )
-                        .animation(.btSnappy, value: isRecording)
-                )
-                .btShadowSubtle()
-                .overlay(alignment: .center) {
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.btBorder))
+                .accessibilityLabel("Dictation practice")
+                .overlay(alignment: .topLeading) {
                     if transcribedText.isEmpty {
-                        Text("Your words will appear here...")
-                            .font(.btBody)
-                            .foregroundStyle(Color.btSecondaryText.opacity(0.4))
-                            .allowsHitTesting(false)
+                        Text(isRecording ? "Listening…" : "Your words will appear here.")
+                            .font(.btBody).foregroundStyle(Color.btSecondaryText)
+                            .padding(18).allowsHitTesting(false)
                     }
                 }
-                .btStaggered(index: 2)
-
+            if hasVoiceResult {
+                Label("That’s your voice, in words.", systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(Color.accentColor).font(.btBody)
+            } else if case .error(let message) = viewModel.appState {
+                Text(message).font(.btCaption).foregroundStyle(Color.red)
+            } else {
+                Text(isRecording ? "Release your shortcut when you’re finished." : "Click the practice area before trying your shortcut.")
+                    .font(.btCaption).foregroundStyle(Color.btSecondaryText)
+            }
+            KeyboardSetupHelp()
+            DisclosureGroup("Use a different shortcut", isExpanded: $showShortcutEditor) {
+                ShortcutRecorderField(
+                    title: "Hold to dictate", subtitle: "Choose a key or combination that feels natural.",
+                    shortcut: shortcutState.pttShortcut.displayString,
+                    captureHint: "Press a key or combination. Esc cancels.",
+                    onCapture: { captured in
+                        if let shortcut = shortcutState.updatePTT(keyCode: captured.keyCode,
+                            modifiers: captured.modifiers.rawValue, modifierKeyCode: captured.modifierKeyCode) {
+                            viewModel.onUpdatePTTShortcut?(shortcut)
+                            viewModel.pttShortcutLabel = shortcut.displayString
+                        }
+                    },
+                    onReset: {
+                        let shortcut = shortcutState.resetPTT()
+                        viewModel.onUpdatePTTShortcut?(shortcut)
+                        viewModel.pttShortcutLabel = shortcut.displayString
+                    }
+                ).padding(.top, 12)
+                if let error = shortcutState.shortcutError { Text(error).foregroundStyle(.red).font(.btCaption) }
+            }.font(.system(size: 13, weight: .medium))
             HStack {
-                BTButton("Skip", style: .secondary) { onContinue() }
+                Text("Mode and cleanup options are in Settings.")
+                    .font(.btCaption).foregroundStyle(Color.btSecondaryText)
                 Spacer()
-                if hasResult {
-                    BTButton("Continue \u{2192}") { onContinue() }
+                if hasVoiceResult {
+                    BTButton("Continue", action: onContinue).disabled(isBusy)
                 }
             }
         }
         .padding(.horizontal, BTSpacing.xl)
-        .padding(.vertical, BTSpacing.md)
+        .foregroundStyle(Color.btText)
         .onAppear {
+            viewModel.isOnboardingTextFieldFocused = true
+            viewModel.onboardingTranscriptionResult = nil
             viewModel.onTrackOnboardingEvent?("onboardingStep2TryIt", [:])
-            // Delay focus to ensure TextEditor is fully in the responder chain
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                isFieldFocused = true
-            }
+            isFieldFocused = true
         }
-        .onChange(of: transcribedText) { _, text in
-            if !text.isEmpty && !hasTrackedFirstTranscription {
-                hasTrackedFirstTranscription = true
+        .onChange(of: isFieldFocused) { _, focused in
+            viewModel.isOnboardingTextFieldFocused = focused
+        }
+        .onDisappear { viewModel.isOnboardingTextFieldFocused = false }
+        .onChange(of: viewModel.onboardingTranscriptionResult) { _, result in
+            guard let result, !result.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+            transcribedText = result
+            if !hasVoiceResult {
+                hasVoiceResult = true
                 viewModel.onTrackOnboardingEvent?("onboardingStep2Transcribed", [:])
             }
         }
@@ -327,15 +289,15 @@ private struct TrialStep: View {
                 .btStaggered(index: 1)
 
             VStack(spacing: BTSpacing.xs) {
-                Text("Blazing Transcribe is free to use.")
-                Text("No account required. No strings attached.")
+                Text("Click a text field in any app, then hold \(viewModel.pttShortcutLabel) and speak.")
+                Text("Open Blazing from the Dock or its menu bar icon whenever you need it.")
             }
             .font(.btBody)
             .foregroundStyle(Color.btSecondaryText)
             .multilineTextAlignment(.center)
             .btStaggered(index: 2)
 
-            BTButton("Start Using Blazing Transcribe") {
+            BTButton("Start dictating") {
                 onComplete()
             }
             .btStaggered(index: 3)
@@ -410,14 +372,19 @@ private struct PermissionChecklist: View {
 
     private var modelDescription: String {
         if let progress = viewModel.currentEngineDownloadProgress, progress < 1 {
-            let completed = viewModel.currentEngineDownloadCompletedFiles
-            let total = viewModel.currentEngineDownloadTotalFiles
-            return total > 0 ? "Downloading \(completed)/\(total) files..." : "Downloading models..."
+            let completedBytes = viewModel.currentEngineDownloadCompletedBytes
+            let totalBytes = viewModel.currentEngineDownloadTotalBytes
+            if totalBytes > 0 {
+                let done = ByteCountFormatter.string(fromByteCount: completedBytes, countStyle: .file)
+                let total = ByteCountFormatter.string(fromByteCount: totalBytes, countStyle: .file)
+                return "Downloading speech model… \(done) of \(total)"
+            }
+            return "Downloading speech model…"
         }
         if viewModel.isEngineLoading {
             return "Preparing transcription models"
         }
-        return "Transcription models loaded"
+        return viewModel.isSpeechEngineReady ? "Speech model ready" : "Speech model needs attention"
     }
 
     var body: some View {
@@ -426,7 +393,7 @@ private struct PermissionChecklist: View {
                 PermissionRow(
                     label: "Local models ready",
                     description: showDescriptions ? modelDescription : nil,
-                    granted: !viewModel.isEngineLoading,
+                    granted: viewModel.isSpeechEngineReady,
                     showSpinner: viewModel.isEngineLoading,
                     progress: viewModel.currentEngineDownloadProgress
                 )
@@ -464,8 +431,7 @@ private struct PermissionChecklist: View {
     @MainActor
     private func pollPermissions() async {
         while !Task.isCancelled {
-            viewModel.isAccessibilityGranted = KeyboardInjector.hasAccessibilityPermission
-            viewModel.isMicrophoneGranted = AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
+            viewModel.refreshPermissionState()
             try? await Task.sleep(for: .seconds(1))
         }
     }
@@ -557,7 +523,7 @@ private struct PermissionGatedButton: View {
     @Environment(AppViewModel.self) private var viewModel
 
     private var canContinue: Bool {
-        !viewModel.isEngineLoading &&
+        viewModel.isSpeechEngineReady && !viewModel.isEngineLoading &&
         viewModel.isAccessibilityGranted &&
         viewModel.isMicrophoneGranted
     }

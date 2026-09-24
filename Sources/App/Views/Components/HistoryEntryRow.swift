@@ -21,21 +21,14 @@ struct HistoryEntryRow: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Timestamp row — always at the top
-            HStack(alignment: .center, spacing: BTSpacing.sm) {
-                Text(timeString)
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundStyle(Color.btSecondaryText.opacity(0.6))
-
-                Spacer(minLength: BTSpacing.sm)
-
-                actionButtons
-            }
-            .padding(.bottom, 4)
-
-            // Content
-            contentView
+        HStack(alignment: .top, spacing: 16) {
+            Text(timeString)
+                .font(.system(size: 11))
+                .foregroundStyle(Color.btSecondaryText)
+                .frame(width: 60, alignment: .leading)
+                .padding(.top, 2)
+            contentView.frame(maxWidth: .infinity, alignment: .leading)
+            actionButtons
         }
         .padding(.horizontal, BTSpacing.md)
         .padding(.vertical, BTSpacing.sm + 4)
@@ -83,8 +76,8 @@ struct HistoryEntryRow: View {
                     .buttonStyle(.plain)
             }
         } else if entry.succeeded {
-            if entry.text.isEmpty {
-                Text("Empty transcription")
+            if entry.text.rangeOfCharacter(from: .alphanumerics) == nil {
+                Text("No words transcribed")
                     .font(.system(size: 14))
                     .foregroundStyle(Color.btSecondaryText.opacity(0.5))
                     .italic()
@@ -114,7 +107,7 @@ struct HistoryEntryRow: View {
                 Circle()
                     .fill(Color.red.opacity(0.5))
                     .frame(width: 6, height: 6)
-                Text("Failed")
+                Text("Couldn’t transcribe")
                     .font(.system(size: 13))
                     .foregroundStyle(Color.btSecondaryText)
 

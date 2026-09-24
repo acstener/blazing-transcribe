@@ -1,4 +1,5 @@
 import AppKit
+import AVFoundation
 import SwiftUI
 import ServiceManagement
 import AudioEngine
@@ -89,13 +90,16 @@ private enum FluidAudioDownloadProgressNotification {
     static let repoKey = "repo"
     static let completedKey = "completed"
     static let totalKey = "total"
+    static let completedBytesKey = "completedBytes"
+    static let totalBytesKey = "totalBytes"
 }
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private static let analyticsInstallIDDefaultsKey = "telemetryInstallID"
     private static let postHogDidTrackInstallDefaultsKey = "posthogDidTrackInstall"
 
     private var statusItem: NSStatusItem?
+    private var microphoneMenuAction: NSMenuItem?
     private var statusMenuItem: NSMenuItem?  // cached for lightweight state updates
     private var overlayPanel: OverlaySurface!
 
@@ -365,7 +369,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var keepWarmTimer: Timer?
     private static let keepWarmInterval: TimeInterval = 30
     // Mic idle-sleep ("Sleep When Idle"): poll the mic state and turn it fully
-    // off after `micIdleSleepMinutes` without dictation. 0 = never (opt-in).
+    // off after `micIdleSleepMinutes` without dictation. Default 15; 0 = never.
     private var micIdleTimer: Timer?
     private static let micIdleCheckInterval: TimeInterval = 30
     private var micIdleAccumulatedSeconds: TimeInterval = 0
@@ -475,11 +479,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Lifecycle
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--experience-preview") || Bundle.main.bundleIdentifier == "com.blazingtranscribe.experience-preview" {
+            configureExperiencePreview()
+            return
+        }
+        #endif
         // Let windows resolve appearance from the real environment. A global
         // Aqua override forces the overlay into a static light baseline and
         // breaks Liquid Glass adaptation on macOS 26.
         NSApp.appearance = nil
-        NSApp.setActivationPolicy(.accessory)
+        UserDefaults.standard.register(defaults: ["micIdleSleepMinutes": 15])
+        NSApp.setActivationPolicy(userWantsDockIcon ? .regular : .accessory)
         applyApplicationIcon()
 
         // Prevent App Nap — critical for real-time audio latency
@@ -546,7 +557,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #if DEBUG
         updaterController = SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: nil, userDriverDelegate: nil)
         #else
-        updaterController = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
+        updaterController = SPUStandardUpdaterController(startingUpdater: Bundle.main.object(forInfoDictionaryKey: "BlazingLocalTestBuild") as? Bool != true, updaterDelegate: nil, userDriverDelegate: nil)
         #endif
 
         loadSavedPreferences()
@@ -626,11 +637,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Setup
 
     private func setupMenuBar() {
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
 
         if let button = statusItem?.button {
-            let icon = ShortcutConfig.shared.recordingMode == .alwaysOn ? "waveform" : "mic.fill"
-            button.image = NSImage(systemSymbolName: icon, accessibilityDescription: "Transcription")
+            button.image = BlazingMark.menuBarImage()
         }
 
         rebuildMenu()
@@ -680,6 +690,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         viewModel.currentEngineDownloadProgress = nil
         viewModel.currentEngineDownloadCompletedFiles = 0
         viewModel.currentEngineDownloadTotalFiles = 0
+        viewModel.currentEngineDownloadCompletedBytes = 0
+        viewModel.currentEngineDownloadTotalBytes = 0
         viewModel.currentEngineDownloadRepoName = nil
     }
 
@@ -703,10 +715,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         guard repo.contains("parakeet") else { return }
 
+        let completedBytes = userInfo[FluidAudioDownloadProgressNotification.completedBytesKey] as? Int64 ?? 0
+        let totalBytes = userInfo[FluidAudioDownloadProgressNotification.totalBytesKey] as? Int64 ?? 0
+
         viewModel.currentEngineDownloadRepoName = repo
         viewModel.currentEngineDownloadCompletedFiles = completed
         viewModel.currentEngineDownloadTotalFiles = total
-        viewModel.currentEngineDownloadProgress = total > 0 ? Double(completed) / Double(total) : nil
+        viewModel.currentEngineDownloadCompletedBytes = completedBytes
+        viewModel.currentEngineDownloadTotalBytes = totalBytes
+        // Byte-based progress when available — file counts alone freeze for
+        // minutes while the single large encoder weights file downloads.
+        if totalBytes > 0 {
+            viewModel.currentEngineDownloadProgress = Double(completedBytes) / Double(totalBytes)
+        } else {
+            viewModel.currentEngineDownloadProgress = total > 0 ? Double(completed) / Double(total) : nil
+        }
         syncEngineLoadingDiagnostics()
     }
 
@@ -723,199 +746,61 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let menu = NSMenu()
+        menu.delegate = self
+        menu.autoenablesItems = false
 
-        // Engine loading indicator
-        if isEngineLoading && isCurrentEngineDownloadPending {
-            let loadingItem = NSMenuItem(title: "Downloading model...", action: nil, keyEquivalent: "")
-            loadingItem.isEnabled = false
-            menu.addItem(loadingItem)
-            menu.addItem(NSMenuItem.separator())
-        }
+        let status = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+        status.isEnabled = false
+        statusMenuItem = status
+        menu.addItem(status)
 
-        if isPerformanceDegraded {
-            let slowItem = NSMenuItem(
-                title: "Transcription running slow — details…",
-                action: #selector(showSlownessDetails),
-                keyEquivalent: ""
-            )
-            slowItem.image = NSImage(
-                systemSymbolName: "exclamationmark.triangle",
-                accessibilityDescription: nil
-            )
-            menu.addItem(slowItem)
-            menu.addItem(NSMenuItem.separator())
-        }
+        let microphone = NSMenuItem(title: "", action: #selector(toggleMicrophoneFromMenu), keyEquivalent: "")
+        microphone.target = self
+        microphoneMenuAction = microphone
+        menu.addItem(microphone)
+        menu.addItem(.separator())
 
-        // Listening toggle (always-on) or status (manual)
-        let currentMode = ShortcutConfig.shared.recordingMode
-        let stateItem: NSMenuItem
-        if currentMode == .manual {
-            let statusTitle: String
-            if isEngineLoading {
-                statusTitle = currentEngineLoadingTitle
-            } else if appState.isRecording {
-                statusTitle = "Recording..."
-            } else {
-                statusTitle = "Waiting for shortcut..."
-            }
-            stateItem = NSMenuItem(title: statusTitle, action: nil, keyEquivalent: "")
-            stateItem.isEnabled = false
-        } else {
-            stateItem = NSMenuItem(title: appState.isListening ? "Stop Listening" : "Start Listening", action: #selector(toggleListening), keyEquivalent: "")
-        }
-        statusMenuItem = stateItem
-        menu.addItem(stateItem)
-
-        menu.addItem(NSMenuItem.separator())
-        menu.addItem(makeMenuSectionHeader("Mode"))
-
-        // Recording mode
-        let alwaysOnItem = NSMenuItem(title: "Always-on Mode", action: #selector(setAlwaysOnMode), keyEquivalent: "")
-        alwaysOnItem.state = currentMode == .alwaysOn ? .on : .off
-        menu.addItem(alwaysOnItem)
-
-        let manualItem = NSMenuItem(title: "Manual Mode (PTT / Toggle)", action: #selector(setManualMode), keyEquivalent: "")
-        manualItem.state = currentMode == .manual ? .on : .off
-        menu.addItem(manualItem)
-
-        menu.addItem(NSMenuItem.separator())
-        menu.addItem(makeMenuSectionHeader("Speed"))
-
-        let currentPreset = selectedTranscriptionPreset
-
-        for preset in TranscriptionPreset.userFacingCases {
-            let item = NSMenuItem(title: preset.menuTitle, action: #selector(setTranscriptionPreset(_:)), keyEquivalent: "")
-            item.representedObject = preset.rawValue
-            item.state = currentPreset == preset ? .on : .off
+        for (title, action) in [
+            ("Open Blazing", #selector(showMainWindow)),
+            ("History", #selector(showHistoryWindow)),
+            ("Settings…", #selector(showSettingsWindow))
+        ] {
+            let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+            item.target = self
             menu.addItem(item)
         }
-
-        menu.addItem(NSMenuItem.separator())
-        menu.addItem(makeMenuSectionHeader("Cleanup"))
-
-        let llmMenu = NSMenu()
-        let llmCleanupAvailable = Self.isLLMCleanupAvailable(for: selectedTranscriptionPreset)
-        let activeTextCleanupMode = Self.effectiveTextCleanupMode(
-            requestedMode: TextCleanupMode.current,
-            transcriptionPreset: selectedTranscriptionPreset
-        )
-
-        let llmOffItem = NSMenuItem(title: "Off", action: #selector(setLLMCleanupModel(_:)), keyEquivalent: "")
-        llmOffItem.representedObject = "off"
-        llmOffItem.state = activeTextCleanupMode == .off ? .on : .off
-        llmMenu.addItem(llmOffItem)
-
-        let regexItem = NSMenuItem(title: "Filler Removal", action: #selector(setLLMCleanupModel(_:)), keyEquivalent: "")
-        regexItem.representedObject = "regex"
-        regexItem.state = activeTextCleanupMode == .regex ? .on : .off
-        llmMenu.addItem(regexItem)
-
-        llmMenu.addItem(NSMenuItem.separator())
-
-        let llmProviderModelID = LLMCleanupService.preferredAPIModelID
-        let llmItem = NSMenuItem(title: "AI Cleanup", action: #selector(setLLMCleanupModel(_:)), keyEquivalent: "")
-        llmItem.representedObject = llmProviderModelID
-        llmItem.state = activeTextCleanupMode == .llm ? .on : .off
-        llmItem.isEnabled = llmCleanupAvailable
-        if llmCleanupAvailable,
-           let modelInfo = LLMCleanupService.availableModels.first(where: { $0.id == llmProviderModelID }) {
-            llmItem.toolTip = "Uses \(modelInfo.label.replacingOccurrences(of: "☁ ", with: ""))"
-        } else {
-            llmItem.toolTip = "Unavailable in Turbo realtime. Use Filler Removal instead."
-        }
-        llmMenu.addItem(llmItem)
-
-        if LLMCleanupService.isVoiceStyleEnabled && llmCleanupAvailable && activeTextCleanupMode == .llm {
-            llmMenu.addItem(NSMenuItem.separator())
-
-            let voiceStyleMenu = NSMenu()
-            let hasCustomVoice = !LLMCleanupService.customPromptInstruction
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-                .isEmpty
-
-            let defaultItem = NSMenuItem(title: "Default Cleanup", action: #selector(setLLMPromptPreset(_:)), keyEquivalent: "")
-            defaultItem.representedObject = "cleanup"
-            defaultItem.state = hasCustomVoice ? .off : .on
-            voiceStyleMenu.addItem(defaultItem)
-
-            let customItem = NSMenuItem(title: "Custom Voice...", action: #selector(setCustomLLMPrompt), keyEquivalent: "")
-            customItem.state = hasCustomVoice ? .on : .off
-            voiceStyleMenu.addItem(customItem)
-
-            let voiceStyleItem = NSMenuItem(title: "Voice Style", action: nil, keyEquivalent: "")
-            voiceStyleItem.submenu = voiceStyleMenu
-            llmMenu.addItem(voiceStyleItem)
-        }
-
-        // if llmCleanupAvailable {
-        //     llmMenu.addItem(NSMenuItem.separator())
-        //
-        //     let realtimeMenu = NSMenu()
-        //     let activeRealtimeMode = realtimeLLMCleanupMode
-        //     for mode in RealtimeLLMCleanupMode.allCases {
-        //         let item = NSMenuItem(title: mode.displayName, action: #selector(setRealtimeLLMCleanupMode(_:)), keyEquivalent: "")
-        //         item.representedObject = mode.rawValue
-        //         item.state = activeRealtimeMode == mode ? .on : .off
-        //         realtimeMenu.addItem(item)
-        //         if mode == .regexOnly {
-        //             realtimeMenu.addItem(NSMenuItem.separator())
-        //         }
-        //     }
-        //     let realtimeMenuItem = NSMenuItem(title: "Realtime Cleanup", action: nil, keyEquivalent: "")
-        //     realtimeMenuItem.submenu = realtimeMenu
-        //     llmMenu.addItem(realtimeMenuItem)
-        // }
-
-        let llmCleanupMenuItem = NSMenuItem(title: "Text Cleanup", action: nil, keyEquivalent: "")
-        llmCleanupMenuItem.submenu = llmMenu
-        menu.addItem(llmCleanupMenuItem)
-
-
-        menu.addItem(NSMenuItem.separator())
-        menu.addItem(makeMenuSectionHeader("App"))
-
-        let updateItem = NSMenuItem(title: "Check for Updates...", action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)), keyEquivalent: "")
-        updateItem.target = updaterController
-        menu.addItem(updateItem)
-
-        if !AXIsProcessTrusted() {
-            let accessItem = NSMenuItem(title: "Grant Accessibility Access...", action: #selector(openAccessibilitySettings), keyEquivalent: "")
-            menu.addItem(accessItem)
-        }
-
-        let windowItem = NSMenuItem(title: "Show Window", action: #selector(showMainWindow), keyEquivalent: "")
-        menu.addItem(windowItem)
-
-        let copyLogsItem = NSMenuItem(title: "Copy Logs", action: #selector(copyLogsToClipboard), keyEquivalent: "")
-        menu.addItem(copyLogsItem)
-
-        // #if DEBUG
-        // menu.addItem(NSMenuItem.separator())
-        // menu.addItem(makeMenuSectionHeader("Debug"))
-        //
-        // let failNextManualItem = NSMenuItem(
-        //     title: "Fail Next Manual Transcription",
-        //     action: #selector(toggleForceNextManualTranscriptionFailure),
-        //     keyEquivalent: ""
-        // )
-        // failNextManualItem.state = isForcedManualTranscriptionFailureArmed ? .on : .off
-        // menu.addItem(failNextManualItem)
-        //
-        // let shortToggleTimersItem = NSMenuItem(
-        //     title: "Short Toggle Timers (15s/30s)",
-        //     action: #selector(toggleDebugShortToggleTimers),
-        //     keyEquivalent: ""
-        // )
-        // shortToggleTimersItem.state = isDebugShortToggleTimersEnabled ? .on : .off
-        // menu.addItem(shortToggleTimersItem)
-        // #endif
-
-        menu.addItem(NSMenuItem.separator())
-        menu.addItem(NSMenuItem(title: "Copy Diagnostics", action: #selector(copyDiagnostics), keyEquivalent: ""))
-        menu.addItem(NSMenuItem(title: "Quit", action: #selector(quit), keyEquivalent: "q"))
-
+        menu.addItem(.separator())
+        let quitItem = NSMenuItem(title: "Quit Blazing", action: #selector(quit), keyEquivalent: "q")
+        quitItem.target = self
+        menu.addItem(quitItem)
         statusItem.menu = menu
+        updateStatusMenuItem()
     }
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        updateStatusMenuItem()
+    }
+
+    @objc func showSettingsWindow() {
+        viewModel.requestedWindowSection = .general
+        showMainWindow()
+    }
+
+    @objc private func showHistoryWindow() {
+        viewModel.requestedWindowSection = .history
+        showMainWindow()
+    }
+
+    #if DEBUG
+    func showExperiencePreviewMenu() {
+        setupMenuBar()
+    }
+
+    func openExperiencePreviewMenu() {
+        guard let window = NSApp.keyWindow, let content = window.contentView else { return }
+        statusItem?.menu?.popUp(positioning: nil, at: NSPoint(x: content.bounds.maxX - 220, y: content.bounds.maxY - 40), in: content)
+    }
+    #endif
 
     @objc private func copyDiagnostics() {
         DiagnosticsService.shared.copyToClipboard()
@@ -932,7 +817,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         isPerformanceDegraded = true
         scheduleMenuRebuild()
         guard !appState.isRecording, !isTranscriptionInProgress else { return }
-        overlayPanel.show(status: .warning("Transcription is running slow — see menu bar for details"))
+        overlayPanel.show(status: .warning("Transcription is running slow — see Settings for diagnostics"))
     }
 
     private func handleSlownessRecovered() {
@@ -970,20 +855,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Update the status menu item title in-place without rebuilding the whole menu.
     private func updateStatusMenuItem() {
         guard let item = statusMenuItem else { return }
-        let currentMode = ShortcutConfig.shared.recordingMode
-        if currentMode == .manual {
-            if isEngineLoading {
-                item.title = currentEngineLoadingTitle
-            } else {
-                item.title = appState.isRecording ? "Recording..." : "Waiting for shortcut..."
-            }
-            item.action = nil
-            item.isEnabled = false
-        } else {
-            item.title = appState.isListening ? "Stop Listening" : "Start Listening"
-            item.action = #selector(toggleListening)
-            item.isEnabled = true
+        let status = MicrophonePresentation.resolve(
+            state: appState.currentState, captureRunning: audioCapture.isRunning,
+            engineReady: transcriptionService.isReady, loading: isEngineLoading,
+            permissionsGranted: KeyboardInjector.hasAccessibilityPermission
+                && AVCaptureDevice.authorizationStatus(for: .audio) == .authorized,
+            mode: ShortcutConfig.shared.recordingMode)
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--experience-preview") || Bundle.main.bundleIdentifier == "com.blazingtranscribe.experience-preview" {
+            item.title = "Mic off"
+            microphoneMenuAction?.title = "Resume microphone"
+            microphoneMenuAction?.isEnabled = false
+            return
         }
+        #endif
+        item.title = isPerformanceDegraded ? "Dictation needs attention" : status.title
+        item.isEnabled = false
+        microphoneMenuAction?.title = audioCapture.isRunning ? "Pause microphone" : "Resume microphone"
+        microphoneMenuAction?.isEnabled = transcriptionService.isReady && !isTranscriptionInProgress
+
+    }
+
+    @objc private func toggleMicrophoneFromMenu() {
+        performMicToggleShortcut()
     }
 
     private func makeMenuSectionHeader(_ title: String) -> NSMenuItem {
@@ -1349,8 +1243,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         syncEngineLoadingDiagnostics()
 
         // Action closures
+        viewModel.refreshEngineReadiness = { [weak self] in self?.transcriptionService.isReady ?? false }
         viewModel.onToggleListening = { [weak self] in
-            self?.toggleListening()
+            self?.performMicToggleShortcut()
         }
         viewModel.onSwitchRecordingMode = { [weak self] mode in
             // Optimistic UI: reflect change instantly before heavy work
@@ -1384,8 +1279,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.registerGlobalShortcuts()
         }
         viewModel.onCheckForUpdates = { [weak self] in
+            guard Bundle.main.object(forInfoDictionaryKey: "BlazingLocalTestBuild") as? Bool != true else {
+                let alert = NSAlert()
+                alert.messageText = "You’re using a local test build"
+                alert.informativeText = "Public updates are disabled for this build. Install a newer test build or restore your saved release to change versions."
+                alert.runModal()
+                return
+            }
             self?.updaterController.checkForUpdates(nil)
         }
+        viewModel.onCopyDiagnostics = { DiagnosticsService.shared.copyToClipboard() }
         viewModel.onCopyLogs = { [weak self] in
             self?.copyLogsToClipboard()
         }
@@ -1442,9 +1345,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         viewModel.onOpenOnboardingPreview = { [weak self] in
-            self?.viewModel.onboardingTranscriptionResult = nil
-            self?.viewModel.isOnboardingPreviewActive = true
-            self?.showMainWindow()
+            guard let self else { return }
+            if self.practicePreviousPreferences == nil {
+                self.practicePreviousPreferences = (ShortcutConfig.shared.recordingMode, self.selectedTranscriptionPreset)
+            }
+            self.switchRecordingMode(.manual)
+            self.switchTranscriptionPreset(to: .stable)
+            self.viewModel.onboardingTranscriptionResult = nil
+            self.viewModel.isOnboardingPreviewActive = true
+            self.showMainWindow()
         }
         viewModel.onCloseOnboardingPreview = { [weak self] in
             if self?.isManualRecording == true {
@@ -1452,6 +1361,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             self?.viewModel.isOnboardingPreviewActive = false
             self?.viewModel.onboardingTranscriptionResult = nil
+            if let self, let previous = self.practicePreviousPreferences {
+                self.practicePreviousPreferences = nil
+                self.switchTranscriptionPreset(to: previous.1)
+                self.switchRecordingMode(previous.0)
+            }
         }
         viewModel.onStartOnboardingRecording = { [weak self] in
             self?.pttDidPress()
@@ -1923,6 +1837,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if ShortcutConfig.shared.recordingMode == .alwaysOn {
             appState.currentState = .idle
         }
+        updateStatusMenuItem()
+        updateMenuBarIcon()
     }
 
     /// User changed the "Sleep When Idle" duration — measure the new window from
@@ -3365,24 +3281,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.terminate(nil)
     }
 
+    // Retain a replacement when SwiftUI has released its original window.
+    private var restoredMainWindow: NSWindow?
+    private var practicePreviousPreferences: (RecordingMode, TranscriptionPreset)?
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        showMainWindow()
+        return false
+    }
+
     @objc func showMainWindow() {
-        let t = CFAbsoluteTimeGetCurrent()
-        // In menu-bar-only mode we stay .accessory — the window still shows and
-        // takes focus, it just doesn't add a Dock icon.
-        if userWantsDockIcon {
-            NSApp.setActivationPolicy(.regular)
-        }
-        NSApp.activate(ignoringOtherApps: true)
-
-        for window in NSApp.windows where window.canBecomeMain {
-            window.makeKeyAndOrderFront(nil)
-            syncActivationPolicyToWindowVisibility()
-            print("[TabPerf] showMainWindow total: \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t) * 1000))ms")
-            return
-        }
-
         syncActivationPolicyToWindowVisibility()
-        print("[TabPerf] showMainWindow: no window found! total: \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t) * 1000))ms")
+        let existing = NSApp.windows.first {
+            $0.identifier?.rawValue == "main" || $0.title == "Blazing Transcribe"
+        }
+        let window: NSWindow
+        if let existing {
+            window = existing
+        } else {
+            let content = MainWindowView().environment(viewModel)
+            window = NSWindow(contentViewController: NSHostingController(rootView: content))
+            window.identifier = NSUserInterfaceItemIdentifier("main")
+            window.title = "Blazing Transcribe"
+            window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
+            window.titleVisibility = .hidden
+            window.titlebarAppearsTransparent = true
+            window.setContentSize(NSSize(width: 880, height: 620))
+            window.center()
+            window.isReleasedWhenClosed = false
+            restoredMainWindow = window
+        }
+        if window.isMiniaturized { window.deminiaturize(nil) }
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     private var windowVisibilityObservers: [NSObjectProtocol] = []
@@ -3416,11 +3347,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func syncActivationPolicyToWindowVisibility() {
-        let windowVisible = NSApp.windows.contains { window in
-            window.canBecomeMain && (window.isVisible || window.isMiniaturized)
-        }
-        // Menu-bar-only mode (Dock icon off) stays .accessory even with a window open.
-        let targetPolicy: NSApplication.ActivationPolicy = (userWantsDockIcon && windowVisible) ? .regular : .accessory
+        let targetPolicy: NSApplication.ActivationPolicy = userWantsDockIcon ? .regular : .accessory
 
         guard NSApp.activationPolicy() != targetPolicy else { return }
         NSApp.setActivationPolicy(targetPolicy)
@@ -3434,25 +3361,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func updateMenuBarIcon(listening: Bool = false, recording: Bool = false) {
         guard let statusItem else { return }
-        let isManual = ShortcutConfig.shared.recordingMode == .manual
-        let iconName: String
-        if isEngineLoading {
-            iconName = isCurrentEngineDownloadPending ? "arrow.down.circle" : "clock"
-        } else if recording {
-            iconName = "record.circle"
-        } else if listening {
-            iconName = "waveform"
-        } else if isMicMuted {
-            iconName = "mic.slash"
-        } else if isManual {
-            iconName = "mic.fill"
-        } else {
-            iconName = "mic.slash"
-        }
-        statusItem.button?.image = NSImage(
-            systemSymbolName: iconName,
-            accessibilityDescription: "Transcription"
-        )
+        let image = BlazingMark.menuBarImage()
+        image.isTemplate = true
+        statusItem.button?.image = image
+        let captureDescription = isEngineLoading ? "Preparing dictation" : (audioCapture.isRunning ? "Microphone active" : "Microphone off")
+        statusItem.button?.toolTip = "Blazing · \(recording ? "Recording" : captureDescription)"
         // Red tint only for active recording — matches macOS screen recording convention
         statusItem.button?.contentTintColor = recording ? .systemRed : nil
     }
@@ -4522,6 +4435,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var shouldRouteTranscriptionToOnboarding: Bool {
         let isInOnboarding = !UserDefaults.standard.bool(forKey: "hasCompletedOnboarding") || viewModel.isOnboardingPreviewActive
         return isInOnboarding && viewModel.isOnboardingTextFieldFocused
+            && NSApp.isActive && NSApp.keyWindow != nil
     }
 
     private func onboardingDeliveryText(for text: String) -> String? {
@@ -6193,6 +6107,10 @@ extension AppDelegate: GlobalShortcutDelegate {
     }
 
     func modeToggleDidTrigger() {
+        // Practice teaches one recording gesture; a double press must not silently
+        // switch a new user into hands-free capture.
+        guard UserDefaults.standard.bool(forKey: "hasCompletedOnboarding"),
+              !viewModel.isOnboardingPreviewActive else { return }
         guard Self.shouldAllowModeToggle(
             isManualRecording: isManualRecording,
             isToggleRecording: isToggleRecording,
