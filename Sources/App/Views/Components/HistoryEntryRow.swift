@@ -12,12 +12,19 @@ struct HistoryEntryRow: View {
     @State private var isHovered = false
     @State private var isExpanded = false
     @State private var showCopiedTooltip = false
+    @State private var isShowingDiff = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Rough character threshold for "long" entries that should be truncated.
     private static let truncationThreshold = 120
 
-    private var isLongEntry: Bool {
-        entry.succeeded && entry.text.count > Self.truncationThreshold
+    private func isLongEntry(diff: WordDiff?) -> Bool {
+        guard entry.succeeded else { return false }
+        if isShowingDiff, let diff {
+            let diffLength = diff.segments.reduce(0) { $0 + $1.text.count + 1 }
+            return diffLength > Self.truncationThreshold
+        }
+        return entry.text.count > Self.truncationThreshold
     }
 
     var body: some View {
@@ -82,15 +89,24 @@ struct HistoryEntryRow: View {
                     .foregroundStyle(Color.btSecondaryText.opacity(0.5))
                     .italic()
             } else {
+                let diff = entry.cleanupDiff
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(entry.text)
-                        .font(.system(size: 14))
-                        .foregroundStyle(Color.btText)
-                        .lineLimit(isExpanded ? nil : 3)
-                        .multilineTextAlignment(.leading)
-                        .lineSpacing(2)
+                    Group {
+                        if isShowingDiff, let diff {
+                            Text(Self.attributedDiff(diff))
+                                .transition(.opacity)
+                        } else {
+                            Text(entry.text)
+                                .transition(.opacity)
+                        }
+                    }
+                    .font(.system(size: 14))
+                    .foregroundStyle(Color.btText)
+                    .lineLimit(isExpanded ? nil : 3)
+                    .multilineTextAlignment(.leading)
+                    .lineSpacing(2)
 
-                    if isLongEntry {
+                    if isLongEntry(diff: diff) {
                         Button {
                             withAnimation(.btSpring) { isExpanded.toggle() }
                         } label: {
@@ -99,6 +115,10 @@ struct HistoryEntryRow: View {
                                 .foregroundStyle(Color.btSecondaryText.opacity(0.7))
                         }
                         .buttonStyle(.plain)
+                    }
+
+                    if let diff {
+                        cleanupChip(fixCount: diff.fixCount)
                     }
                 }
             }
@@ -178,6 +198,60 @@ struct HistoryEntryRow: View {
             }
             .opacity(isHovered ? 1 : 0)
         }
+    }
+
+    // MARK: - Cleanup diff
+
+    private func cleanupChip(fixCount: Int) -> some View {
+        Button {
+            withAnimation(reduceMotion ? .easeInOut(duration: 0.15) : .btSpring) {
+                isShowingDiff.toggle()
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: isShowingDiff ? "eye.slash" : "wand.and.stars")
+                    .font(.system(size: 9, weight: .medium))
+                Text(cleanupChipLabel(fixCount: fixCount))
+                    .font(.system(size: 11, weight: .medium))
+            }
+            .foregroundStyle(Color.btSecondaryText.opacity(isShowingDiff ? 0.9 : 0.7))
+            .padding(.horizontal, 7)
+            .padding(.vertical, 2)
+            .background(
+                Capsule().fill(Color.btActiveBackground.opacity(isShowingDiff ? 0.9 : 0.5))
+            )
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .padding(.top, 2)
+        .help(isShowingDiff ? "Show cleaned text" : "Show what cleanup changed")
+        .accessibilityLabel(cleanupChipLabel(fixCount: fixCount))
+        .accessibilityHint(isShowingDiff ? "Shows the cleaned text" : "Shows what cleanup changed")
+    }
+
+    private func cleanupChipLabel(fixCount: Int) -> String {
+        let name = entry.cleanupKind == .llm ? "LLM Cleanup" : "Cleaned"
+        return "\(name) · \(fixCount) \(fixCount == 1 ? "fix" : "fixes")"
+    }
+
+    /// Inline diff: removed words struck through at 45% opacity, inserted words on an Ember tint.
+    static func attributedDiff(_ diff: WordDiff) -> AttributedString {
+        var result = AttributedString()
+        for (index, segment) in diff.segments.enumerated() {
+            if index > 0 { result += AttributedString(" ") }
+            var piece = AttributedString(segment.text)
+            switch segment.kind {
+            case .unchanged:
+                break
+            case .removed:
+                piece.strikethroughStyle = .single
+                piece.foregroundColor = Color.btText.opacity(0.45)
+            case .inserted:
+                piece.backgroundColor = Color.btEmber.opacity(0.15)
+            }
+            result += piece
+        }
+        return result
     }
 
     // MARK: - Computed

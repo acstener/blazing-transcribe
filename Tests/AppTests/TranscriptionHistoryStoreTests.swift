@@ -127,6 +127,117 @@ final class TranscriptionHistoryStoreTests: XCTestCase {
         XCTAssertEqual(clearedReferences.count, totalEntries - 24)
     }
 
+    func testDecodesLegacyRecordWithoutCleanupFields() throws {
+        let json = """
+        [{
+          "id": "0F8E3C57-8A8B-4D0B-9C1B-2F6E6D8A9B11",
+          "text": "Hello world.",
+          "timestamp": "2026-01-02T03:04:05Z",
+          "speechDuration": 1.5,
+          "transcriptionDuration": 0.2,
+          "recordingMode": "ptt",
+          "source": "ptt",
+          "wordCount": 2,
+          "succeeded": true
+        }]
+        """
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let records = try decoder.decode([TranscriptionRecord].self, from: Data(json.utf8))
+
+        XCTAssertEqual(records.count, 1)
+        XCTAssertEqual(records[0].text, "Hello world.")
+        XCTAssertNil(records[0].rawText)
+        XCTAssertNil(records[0].cleanupKind)
+        XCTAssertNil(records[0].errorMessage)
+        XCTAssertNil(records[0].audioFileName)
+        XCTAssertFalse(records[0].dismissed)
+        XCTAssertNil(records[0].cleanupDiff)
+    }
+
+    func testLegacyHistoryFileLoadsIntoStore() throws {
+        let baseDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("TranscriptionHistoryStoreTests-\(UUID().uuidString)", isDirectory: true)
+        createdDirectories.append(baseDirectory)
+        try FileManager.default.createDirectory(at: baseDirectory, withIntermediateDirectories: true)
+        let json = """
+        [{"id":"0F8E3C57-8A8B-4D0B-9C1B-2F6E6D8A9B11","text":"Hi","timestamp":"2026-01-02T03:04:05Z",
+          "speechDuration":1,"transcriptionDuration":0.1,"recordingMode":"ptt","source":"ptt",
+          "wordCount":1,"succeeded":true,"dismissed":false}]
+        """
+        try Data(json.utf8).write(to: baseDirectory.appendingPathComponent("history.json"))
+
+        let store = TranscriptionHistoryStore(baseDirectory: baseDirectory)
+        XCTAssertEqual(store.allEntries().map(\.text), ["Hi"])
+    }
+
+    func testCleanupFieldsRoundTripAndProduceDiff() throws {
+        var record = makeRecord(text: "So we ship it.")
+        record.rawText = "um so we ship it"
+        record.cleanupKind = .llm
+
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let decoded = try decoder.decode(TranscriptionRecord.self, from: encoder.encode(record))
+
+        XCTAssertEqual(decoded, record)
+        XCTAssertEqual(decoded.cleanupKind, .llm)
+        XCTAssertEqual(decoded.cleanupDiff?.fixCount, 2)
+    }
+
+    func testUnknownCleanupKindDropsDiffInsteadOfFailingDecode() throws {
+        let json = """
+        {"id":"0F8E3C57-8A8B-4D0B-9C1B-2F6E6D8A9B11","text":"Hi","timestamp":"2026-01-02T03:04:05Z",
+         "speechDuration":1,"transcriptionDuration":0.1,"recordingMode":"ptt","source":"ptt",
+         "wordCount":1,"succeeded":true,"rawText":"um hi","cleanupKind":"somethingNew"}
+        """
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let record = try decoder.decode(TranscriptionRecord.self, from: Data(json.utf8))
+        XCTAssertNil(record.rawText)
+        XCTAssertNil(record.cleanupKind)
+    }
+
+    func testCleanupDiffIsNilWhenRawMatchesText() {
+        var record = makeRecord(text: "Same text")
+        record.rawText = "Same   text"
+        record.cleanupKind = .fillerRemoval
+        XCTAssertNil(record.cleanupDiff)
+    }
+
+    func testMarkRetrySucceededStoresAndClearsRawText() {
+        let store = makeStore()
+        let record = makeRecord(text: "", succeeded: false)
+        store.insert(record)
+
+        store.markRetrySucceeded(
+            id: record.id, text: "Hello.", wordCount: 1, transcriptionDuration: 0.1,
+            rawText: "um hello", cleanupKind: .fillerRemoval
+        )
+        XCTAssertEqual(store.entry(for: record.id)?.rawText, "um hello")
+        XCTAssertEqual(store.entry(for: record.id)?.cleanupKind, .fillerRemoval)
+
+        store.markRetrySucceeded(id: record.id, text: "hello", wordCount: 1, transcriptionDuration: 0.1)
+        XCTAssertNil(store.entry(for: record.id)?.rawText)
+        XCTAssertNil(store.entry(for: record.id)?.cleanupKind)
+    }
+
+    private func makeRecord(text: String, succeeded: Bool = true) -> TranscriptionRecord {
+        TranscriptionRecord(
+            id: UUID(),
+            text: text,
+            timestamp: Date(timeIntervalSince1970: 1_700_000_000),
+            speechDuration: 1,
+            transcriptionDuration: 0.1,
+            recordingMode: "ptt",
+            source: "ptt",
+            wordCount: 2,
+            succeeded: succeeded
+        )
+    }
+
     private func makeStore() -> TranscriptionHistoryStore {
         let baseDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("TranscriptionHistoryStoreTests-\(UUID().uuidString)", isDirectory: true)

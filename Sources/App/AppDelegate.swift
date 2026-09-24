@@ -971,10 +971,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func completeBatchTranscription(
         finalText: String,
         cleanupUsed: Bool,
+        cleanupKind: TranscriptionRecord.CleanupKind? = nil,
         utterance: Utterance,
         completedRequest: PendingTranscriptionRequest?,
         batchSource: String
     ) {
+        // Keep the pre-cleanup ASR text only when cleanup actually changed it (History diff).
+        let historyRawText: String? = (cleanupUsed && cleanupKind != nil && utterance.text != finalText)
+            ? utterance.text : nil
+        let historyCleanupKind = historyRawText == nil ? nil : cleanupKind
+
         let finalWordCount = recordCompletedTranscriptionUsage(
             text: finalText,
             transcriptionDuration: utterance.duration,
@@ -993,8 +999,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                id: retryID,
                text: finalText,
                wordCount: finalWordCount,
-               transcriptionDuration: utterance.duration
+               transcriptionDuration: utterance.duration,
+               rawText: historyRawText,
+               cleanupKind: historyCleanupKind
            ) {
+            recordCleanupFixes(rawText: historyRawText, finalText: finalText)
             cleanupRetainedAudioAfterSuccess(for: completedRequest)
             appLog("Retry transcription succeeded for history entry \(retryID.uuidString)")
             let pasteboard = NSPasteboard.general
@@ -1013,7 +1022,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             wordCount: finalWordCount,
             speechDuration: lastSpeechDuration,
             transcriptionDuration: utterance.duration,
-            source: batchSource
+            source: batchSource,
+            rawText: historyRawText,
+            cleanupKind: historyCleanupKind
         )
 
         if shouldRouteTranscriptionToOnboarding {
@@ -5162,6 +5173,7 @@ extension AppDelegate: TranscriptionDelegate {
             self.completeBatchTranscription(
                 finalText: applyITNIfEnabled(applyRegexFillerCleanup(utterance.text)),
                 cleanupUsed: true,
+                cleanupKind: .fillerRemoval,
                 utterance: utterance,
                 completedRequest: completedRequest,
                 batchSource: batchSource
@@ -5177,10 +5189,13 @@ extension AppDelegate: TranscriptionDelegate {
                     print("[LLMCleanup] \"\(utterance.text)\" → \"\(cleanedText)\"")
                 }
                 #endif
+                // If the LLM left the text alone (or fell back), only filler removal changed it.
+                let kind: TranscriptionRecord.CleanupKind = llmCleanedText == preClean ? .fillerRemoval : .llm
                 await MainActor.run {
                     self.completeBatchTranscription(
                         finalText: cleanedText,
                         cleanupUsed: true,
+                        cleanupKind: kind,
                         utterance: utterance,
                         completedRequest: completedRequest,
                         batchSource: batchSource
@@ -6382,11 +6397,13 @@ extension AppDelegate: GlobalShortcutDelegate {
         wordCount: Int,
         speechDuration: Double,
         transcriptionDuration: Double,
-        source: String
+        source: String,
+        rawText: String? = nil,
+        cleanupKind: TranscriptionRecord.CleanupKind? = nil
     ) {
         let id = UUID()
 
-        let record = TranscriptionRecord(
+        var record = TranscriptionRecord(
             id: id,
             text: text,
             timestamp: Date(),
@@ -6398,7 +6415,17 @@ extension AppDelegate: GlobalShortcutDelegate {
             succeeded: true,
             audioFileName: nil
         )
+        if let rawText, let cleanupKind, rawText != text {
+            record.rawText = rawText
+            record.cleanupKind = cleanupKind
+        }
         TranscriptionHistoryStore.shared.insert(record)
+        recordCleanupFixes(rawText: record.rawText, finalText: text)
+    }
+
+    private func recordCleanupFixes(rawText: String?, finalText: String) {
+        guard let rawText else { return }
+        UsageStats.shared.recordCleanupFixes(WordDiff(from: rawText, to: finalText).fixCount)
     }
 
     private func recordHistoryFailure(

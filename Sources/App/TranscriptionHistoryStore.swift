@@ -13,6 +13,51 @@ struct TranscriptionRecord: Identifiable, Codable, Equatable {
     var errorMessage: String?
     var audioFileName: String?
     var dismissed: Bool = false
+    /// ASR output before any cleanup. Only stored when cleanup changed the text.
+    var rawText: String? = nil
+    /// Which cleanup produced `text` from `rawText`. Nil whenever `rawText` is nil.
+    var cleanupKind: CleanupKind? = nil
+
+    enum CleanupKind: String, Codable, Equatable {
+        case fillerRemoval
+        case llm
+    }
+
+    /// The word diff from `rawText` to `text`, or nil when there is no raw text or no change.
+    var cleanupDiff: WordDiff? {
+        guard succeeded, let rawText, rawText != text else { return nil }
+        let diff = WordDiff(from: rawText, to: text)
+        return diff.hasChanges ? diff : nil
+    }
+}
+
+extension TranscriptionRecord {
+    private enum CodingKeys: String, CodingKey {
+        case id, text, timestamp, speechDuration, transcriptionDuration, recordingMode, source
+        case wordCount, succeeded, errorMessage, audioFileName, dismissed, rawText, cleanupKind
+    }
+
+    /// Tolerant decoding: fields added after the first release are optional, and an unknown
+    /// `cleanupKind` drops the diff rather than failing the whole history file.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        text = try c.decode(String.self, forKey: .text)
+        timestamp = try c.decode(Date.self, forKey: .timestamp)
+        speechDuration = try c.decode(Double.self, forKey: .speechDuration)
+        transcriptionDuration = try c.decode(Double.self, forKey: .transcriptionDuration)
+        recordingMode = try c.decode(String.self, forKey: .recordingMode)
+        source = try c.decode(String.self, forKey: .source)
+        wordCount = try c.decode(Int.self, forKey: .wordCount)
+        succeeded = try c.decode(Bool.self, forKey: .succeeded)
+        errorMessage = try c.decodeIfPresent(String.self, forKey: .errorMessage)
+        audioFileName = try c.decodeIfPresent(String.self, forKey: .audioFileName)
+        dismissed = try c.decodeIfPresent(Bool.self, forKey: .dismissed) ?? false
+        let kind = (try? c.decodeIfPresent(CleanupKind.self, forKey: .cleanupKind)) ?? nil
+        let raw = try c.decodeIfPresent(String.self, forKey: .rawText)
+        rawText = kind == nil ? nil : raw
+        cleanupKind = raw == nil ? nil : kind
+    }
 }
 
 final class TranscriptionHistoryStore {
@@ -78,12 +123,21 @@ final class TranscriptionHistoryStore {
     }
 
     @discardableResult
-    func markRetrySucceeded(id: UUID, text: String, wordCount: Int, transcriptionDuration: Double) -> Bool {
+    func markRetrySucceeded(
+        id: UUID,
+        text: String,
+        wordCount: Int,
+        transcriptionDuration: Double,
+        rawText: String? = nil,
+        cleanupKind: TranscriptionRecord.CleanupKind? = nil
+    ) -> Bool {
         guard let index = records.firstIndex(where: { $0.id == id }) else { return false }
         if let audioFile = records[index].audioFileName {
             removeAudioFile(fileName: audioFile)
         }
         records[index].text = text
+        records[index].rawText = cleanupKind == nil ? nil : rawText
+        records[index].cleanupKind = rawText == nil ? nil : cleanupKind
         records[index].wordCount = wordCount
         records[index].transcriptionDuration = transcriptionDuration
         records[index].succeeded = true

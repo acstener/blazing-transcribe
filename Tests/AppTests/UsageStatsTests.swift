@@ -86,6 +86,21 @@ final class UsageStatsTests: XCTestCase {
         XCTAssertEqual(counter.count, 3)
     }
 
+    func testCleanupFixesAccumulateAndResetClearsThem() {
+        let harness = makeIsolatedDefaults()
+        defer { harness.reset() }
+        let stats = UsageStats(defaults: harness.defaults, notificationCenter: NotificationCenter())
+
+        XCTAssertEqual(stats.totalCleanupFixes, 0)
+        stats.recordCleanupFixes(3)
+        stats.recordCleanupFixes(0)
+        stats.recordCleanupFixes(2)
+        XCTAssertEqual(stats.totalCleanupFixes, 5)
+
+        stats.reset()
+        XCTAssertEqual(stats.totalCleanupFixes, 0)
+    }
+
     private func makeIsolatedDefaults() -> IsolatedDefaults {
         let suiteName = "UsageStatsTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!

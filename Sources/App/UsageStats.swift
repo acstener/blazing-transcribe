@@ -19,6 +19,7 @@ final class UsageStats {
         static let totalTranscriptionSeconds = "stats.totalTranscriptionSeconds"
         static let totalSpeechSeconds = "stats.totalSpeechSeconds"
         static let firstUseDate = "stats.firstUseDate"
+        static let totalCleanupFixes = "stats.totalCleanupFixes"
     }
 
     // MARK: - Persisted Counters
@@ -41,6 +42,12 @@ final class UsageStats {
 
     var totalSpeechSeconds: Double {
         defaults.double(forKey: Key.totalSpeechSeconds)
+    }
+
+    /// Total fixes made by cleanup (change runs in the raw → cleaned word diff), summed over
+    /// every saved history record that has a diff. Feeds the Usage page.
+    var totalCleanupFixes: Int {
+        defaults.integer(forKey: Key.totalCleanupFixes)
     }
 
     var firstUseDate: Date? {
@@ -159,12 +166,19 @@ final class UsageStats {
         notifyDidChange()
     }
 
+    func recordCleanupFixes(_ count: Int) {
+        guard count > 0 else { return }
+        defaults.set(totalCleanupFixes + count, forKey: Key.totalCleanupFixes)
+        notifyDidChange()
+    }
+
     func reset() {
         defaults.removeObject(forKey: Key.totalWords)
         defaults.removeObject(forKey: Key.totalCharacters)
         defaults.removeObject(forKey: Key.totalUtterances)
         defaults.removeObject(forKey: Key.totalTranscriptionSeconds)
         defaults.removeObject(forKey: Key.totalSpeechSeconds)
+        defaults.removeObject(forKey: Key.totalCleanupFixes)
         defaults.set(Date().timeIntervalSince1970, forKey: Key.firstUseDate)
         notifyDidChange()
     }
