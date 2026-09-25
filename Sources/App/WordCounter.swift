@@ -13,4 +13,10 @@ enum WordCounter {
         }
         return count
     }
+
+    /// False for transcripts with nothing a person said — e.g. the ASR hearing a murmur
+    /// as "Mm." and filler cleanup reducing it to "." (seen as ~5% of cleaned dictations).
+    static func hasSpokenContent(_ text: String) -> Bool {
+        text.rangeOfCharacter(from: .alphanumerics) != nil
+    }
 }

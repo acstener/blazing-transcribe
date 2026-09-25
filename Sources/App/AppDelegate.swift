@@ -995,6 +995,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         completedRequest: PendingTranscriptionRequest?,
         batchSource: String
     ) {
+        // Nothing left to type (e.g. "Mm." cleaned down to "."): treat it exactly like
+        // "No speech detected" rather than typing stray punctuation into the user's app.
+        guard WordCounter.hasSpokenContent(finalText) else {
+            appLog("Timing: dropped-empty source=\(batchSource) text=\"\(finalText)\" raw=\"\(utterance.text)\"")
+            trackEventThrottled("noSpeechAfterCleanup", key: batchSource, parameters: [
+                "source": batchSource,
+                "cleanup": cleanupUsed,
+            ])
+            if let request = completedRequest {
+                if let retryID = request.historyRetryID {
+                    TranscriptionHistoryStore.shared.updateFailure(
+                        id: retryID,
+                        errorMessage: TranscriptionError.noSpeechDetected.localizedDescription
+                    )
+                } else if Self.shouldRecordHistoryFailure(for: request.source) {
+                    recordHistoryFailure(
+                        error: TranscriptionError.noSpeechDetected,
+                        speechDuration: request.duration,
+                        source: request.source,
+                        request: request
+                    )
+                }
+            }
+            processNextInQueue()
+            return
+        }
+
         // Keep the pre-cleanup ASR text only when cleanup actually changed it (History diff).
         let historyRawText: String? = (cleanupUsed && cleanupKind != nil && utterance.text != finalText)
             ? utterance.text : nil
@@ -5260,6 +5287,11 @@ extension AppDelegate: TranscriptionDelegate {
         }
 
         let isPractice = isPracticeDictation
+        // Never type stray punctuation (e.g. "." left after cleaning "Mm.") into another app.
+        guard WordCounter.hasSpokenContent(text) else {
+            appLog("Skipped typing punctuation-only text: \"\(text)\"")
+            return true
+        }
         guard prepareTextDeliveryTarget() else { return false }
         // Decision 6: nothing to type into -> copy instead of typing into the void.
         if deliverToClipboardIfNoTextFieldFocused(text) {
