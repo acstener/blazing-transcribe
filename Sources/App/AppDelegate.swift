@@ -623,6 +623,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         stopKeepWarmTimer()
         stopMicIdleTimer()
         DiagnosticsService.shared.stop()
+        TranscriptionHistoryStore.shared.flushPendingSave()
+
+        // Quitting used to SIGABRT: exit() runs C++ static destructors, and whisper.cpp's
+        // Metal backend aborts while freeing GPU residency sets (ggml_metal_rsets_free).
+        // atexit handlers run in reverse order, so this one runs after every quit
+        // notification and our own teardown, but before those destructors.
+        atexit {
+            fflush(nil)
+            _exit(0)
+        }
     }
 
     // MARK: - Sleep / Wake

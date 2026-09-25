@@ -316,6 +316,21 @@ final class TranscriptionHistoryStore {
         }
     }
 
+    /// Writes any debounced save immediately and waits for it — call on quit so a
+    /// dictation made in the last second isn't lost.
+    func flushPendingSave() {
+        guard let pending = saveWorkItem else { return }
+        pending.cancel()
+        saveWorkItem = nil
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        guard let data = try? encoder.encode(records) else { return }
+        let url = historyURL
+        Self.saveQueue.sync {
+            try? data.write(to: url, options: .atomic)
+        }
+    }
+
     private func scheduleSave() {
         saveWorkItem?.cancel()
         let item = DispatchWorkItem { [weak self] in

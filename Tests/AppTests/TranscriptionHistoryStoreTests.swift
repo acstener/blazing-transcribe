@@ -171,6 +171,20 @@ final class TranscriptionHistoryStoreTests: XCTestCase {
         XCTAssertEqual(store.allEntries().map(\.text), ["Hi"])
     }
 
+    func testFlushPendingSaveWritesImmediatelyForQuit() throws {
+        let baseDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("TranscriptionHistoryStoreTests-\(UUID().uuidString)", isDirectory: true)
+        createdDirectories.append(baseDirectory)
+        let store = TranscriptionHistoryStore(baseDirectory: baseDirectory)
+        store.insert(makeRecord(text: "Said just before quitting"))
+
+        // No run-loop turn: the debounced save hasn't fired yet, as when the app quits.
+        store.flushPendingSave()
+
+        let reloaded = TranscriptionHistoryStore(baseDirectory: baseDirectory)
+        XCTAssertEqual(reloaded.allEntries().map(\.text), ["Said just before quitting"])
+    }
+
     func testCleanupFieldsRoundTripAndProduceDiff() throws {
         var record = makeRecord(text: "So we ship it.")
         record.rawText = "um so we ship it"
