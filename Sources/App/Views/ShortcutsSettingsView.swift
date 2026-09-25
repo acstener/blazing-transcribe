@@ -19,6 +19,8 @@ struct ShortcutsSettingsView: View {
                     .foregroundStyle(Color.btText)
 
                 VStack(alignment: .leading, spacing: BTSpacing.sm) {
+                    fnKeyCard
+
                     KeyboardSetupHelp()
 
                     ShortcutRecorderField(
@@ -56,8 +58,8 @@ struct ShortcutsSettingsView: View {
 
                     fixedShortcutField(
                         title: "Switch mode",
-                        subtitle: "Flips between Always-on and Manual. Built in.",
-                        shortcut: ShortcutSettingsState.defaultModeToggleLabel()
+                        subtitle: "Flips between Always-on and Manual.",
+                        shortcut: ShortcutSettingsState.modeToggleLabel(for: shortcutState.modeToggleShortcut)
                     )
 
                     if let shortcutError = shortcutState.shortcutError {
@@ -74,6 +76,50 @@ struct ShortcutsSettingsView: View {
         }
         .btHideScrollIndicators()
         .frame(maxWidth: .infinity)
+    }
+
+    // MARK: - fn key
+
+    /// One switch for people whose fn/🌐 key already does something on their Mac.
+    private var fnKeyCard: some View {
+        BTCard {
+            HStack(alignment: .center, spacing: BTSpacing.md) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Use the fn key")
+                        .font(.btBody)
+                        .foregroundStyle(Color.btText)
+                    Text(shortcutState.usesFnKey
+                         ? "Blazing listens to fn. Turn off to keep fn for Emoji, Dictation or anything else your Mac uses it for."
+                         : "fn is left alone. Blazing uses \(shortcutState.pttShortcut.displayString) to dictate instead.")
+                        .font(.btCaption)
+                        .foregroundStyle(Color.btSecondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: BTSpacing.md)
+                Toggle("Use the fn key", isOn: Binding(
+                    get: { shortcutState.usesFnKey },
+                    set: { setUsesFnKey($0) }
+                ))
+                .toggleStyle(.btSwitch)
+                .labelsHidden()
+            }
+        }
+    }
+
+    private func setUsesFnKey(_ useFn: Bool) {
+        if useFn {
+            shortcutState.useFnKeyDefaults()
+        } else if !shortcutState.stopUsingFnKey() {
+            return
+        }
+        applyShortcuts()
+    }
+
+    private func applyShortcuts() {
+        viewModel.onUpdatePTTShortcut?(shortcutState.pttShortcut)
+        viewModel.onUpdateToggleShortcut?(shortcutState.toggleShortcut)
+        viewModel.onUpdateModeToggleShortcut?(shortcutState.modeToggleShortcut)
+        viewModel.pttShortcutLabel = shortcutState.pttShortcut.displayString
     }
 
     private func fixedShortcutField(title: String, subtitle: String, shortcut: String) -> some View {

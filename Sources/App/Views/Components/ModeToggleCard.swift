@@ -60,7 +60,7 @@ private struct ModeToggleHint: View {
             Rectangle()
                 .fill(Color.btBorder)
                 .frame(width: 16, height: 1)
-            Text("double-tap fn to switch")
+            Text(ShortcutConfig.shared.modeToggleShortcut.map { "\($0.displayString) to switch" } ?? "double-tap fn to switch")
                 .font(.system(size: 10))
                 .foregroundStyle(Color.btSecondaryText.opacity(0.45))
             Rectangle()

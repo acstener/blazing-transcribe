@@ -248,19 +248,17 @@ struct FnConflictWarning: View {
     }
 
     private func useAlternative() {
+        // Move every fn shortcut (hold, toggle, double-click mode switch), not just hold.
         var state = ShortcutSettingsState()
-        let alternative = Self.alternativeShortcut
-        guard let shortcut = state.updatePTT(
-            keyCode: alternative.keyCode,
-            modifiers: alternative.modifiers,
-            modifierKeyCode: nil
-        ) else {
+        guard state.stopUsingFnKey() else {
             switchError = state.shortcutError
             return
         }
         switchError = nil
-        viewModel.onUpdatePTTShortcut?(shortcut)
-        viewModel.pttShortcutLabel = shortcut.displayString
+        viewModel.onUpdatePTTShortcut?(state.pttShortcut)
+        viewModel.onUpdateToggleShortcut?(state.toggleShortcut)
+        viewModel.onUpdateModeToggleShortcut?(state.modeToggleShortcut)
+        viewModel.pttShortcutLabel = state.pttShortcut.displayString
         viewModel.onTrackOnboardingEvent?("fnConflictSwitchedShortcut", [
             "fnAction": viewModel.fnKeySystemAction.analyticsLabel,
         ])

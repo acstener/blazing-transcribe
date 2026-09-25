@@ -157,6 +157,52 @@ struct ShortcutSettingsState {
         return .defaultMicToggle
     }
 
+    // MARK: - fn on/off
+
+    /// Blazing's fn-free defaults, for people whose fn/🌐 key already does something
+    /// (Emoji, Dictation, input source) or who simply don't want it taken over.
+    static let fnFreePTT = GlobalShortcut(keyCode: 49, modifiers: NSEvent.ModifierFlags([.control, .option]).rawValue)          // ⌃⌥Space
+    static let fnFreeToggle = GlobalShortcut(keyCode: 49, modifiers: NSEvent.ModifierFlags([.control, .option, .shift]).rawValue) // ⌃⌥⇧Space
+    static let fnFreeModeToggle = GlobalShortcut(keyCode: 46, modifiers: NSEvent.ModifierFlags([.control, .option]).rawValue)    // ⌃⌥M
+
+    /// True when any Blazing shortcut relies on the fn key (including the built-in
+    /// double-click-fn mode switch, which is what `modeToggleShortcut == nil` means).
+    var usesFnKey: Bool {
+        pttShortcut.normalizedModifiers.contains(.function)
+            || toggleShortcut.normalizedModifiers.contains(.function)
+            || modeToggleShortcut == nil
+            || modeToggleShortcut?.normalizedModifiers.contains(.function) == true
+    }
+
+    /// Moves every fn-based shortcut to its fn-free default, leaving other custom
+    /// shortcuts alone. Returns false (with `shortcutError`) if a replacement clashes.
+    mutating func stopUsingFnKey() -> Bool {
+        var next = self
+        if next.pttShortcut.normalizedModifiers.contains(.function) { next.pttShortcut = Self.fnFreePTT }
+        if next.toggleShortcut.normalizedModifiers.contains(.function) { next.toggleShortcut = Self.fnFreeToggle }
+        if next.modeToggleShortcut == nil || next.modeToggleShortcut?.normalizedModifiers.contains(.function) == true {
+            next.modeToggleShortcut = Self.fnFreeModeToggle
+        }
+        let shortcuts = [next.pttShortcut, next.toggleShortcut, next.micToggleShortcut.asGlobalShortcut, next.modeToggleShortcut!]
+        for i in shortcuts.indices {
+            for j in shortcuts.indices where j > i && shortcuts[i].conflicts(with: shortcuts[j]) {
+                shortcutError = "Couldn't switch off fn: \(shortcuts[i].displayString) is already used by another Blazing shortcut. Change it first."
+                return false
+            }
+        }
+        next.shortcutError = nil
+        self = next
+        return true
+    }
+
+    /// Back to Blazing's fn defaults: hold fn, fn+Space, double-click fn.
+    mutating func useFnKeyDefaults() {
+        shortcutError = nil
+        pttShortcut = .defaultPTT
+        toggleShortcut = .defaultToggle
+        modeToggleShortcut = nil
+    }
+
     mutating func resetModeToggle() -> GlobalShortcut? {
         shortcutError = nil
         modeToggleShortcut = nil
