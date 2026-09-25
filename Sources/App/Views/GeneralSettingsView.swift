@@ -8,7 +8,7 @@ struct GeneralSettingsView: View {
     @Environment(TabSelection.self) private var selection
     @State private var stickyFieldRestore = !UserDefaults.standard.bool(forKey: "stickyFieldRestoreDisabled")
     @State private var itnEnabled = UserDefaults.standard.bool(forKey: "itnEnabled")
-    @State private var showDockIcon = UserDefaults.standard.object(forKey: "showDockIcon") as? Bool ?? true
+    @State private var showDockIcon = UserDefaults.standard.object(forKey: "showDockIcon") as? Bool ?? false
 
     var body: some View {
         ScrollView {

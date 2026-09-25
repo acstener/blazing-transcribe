@@ -10,6 +10,9 @@ struct BlazingTranscribeApp: App {
                 .environment(appDelegate.viewModel)
 
         }
+        // Blazing lives in the menu bar: don't pop the window on launch or after an
+        // update relaunch. AppDelegate opens it only while onboarding is unfinished.
+        .defaultLaunchBehavior(.suppressed)
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 880, height: 620)
         .windowResizability(.contentMinSize)

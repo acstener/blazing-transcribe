@@ -591,6 +591,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         proceedWithStartup()
 
+        // Stay out of the way once set up; new users still land in onboarding.
+        if !UserDefaults.standard.bool(forKey: "hasCompletedOnboarding") {
+            DispatchQueue.main.async { [weak self] in self?.showMainWindow() }
+        }
+
         // Sleep/wake handling for audio engine recovery
         let wsnc = NSWorkspace.shared.notificationCenter
         wsnc.addObserver(self, selector: #selector(systemWillSleep), name: NSWorkspace.willSleepNotification, object: nil)
@@ -3467,11 +3472,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    /// User preference: show the Dock icon (default), or run menu-bar-only.
+    /// User preference: run menu-bar-only (default, like a background utility) or show the Dock icon.
     /// When off, the app stays a background/accessory app and the window is
     /// opened from the menu bar ("Show Window").
     private var userWantsDockIcon: Bool {
-        UserDefaults.standard.object(forKey: "showDockIcon") as? Bool ?? true
+        UserDefaults.standard.object(forKey: "showDockIcon") as? Bool ?? false
     }
 
     private func syncActivationPolicyToWindowVisibility() {
