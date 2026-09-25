@@ -14,6 +14,19 @@ import PostHog
 
 /// Send an analytics event to PostHog. No-op when analytics is disabled
 /// (empty `AnalyticsSecrets.postHogAPIKey`, i.e. source/fork builds).
+private var analyticsThrottle = AnalyticsThrottle()
+private let analyticsThrottleLock = NSLock()
+
+/// Like `trackEvent`, but at most once per `key` every 10 minutes; the next event that
+/// gets through carries `suppressedRepeats` so volume is still visible.
+func trackEventThrottled(_ name: String, key: String, parameters: [String: Any] = [:]) {
+    let admitted: Int? = analyticsThrottleLock.withLock { analyticsThrottle.admit("\(name)|\(key)") }
+    guard let suppressed = admitted else { return }
+    var parameters = parameters
+    parameters["suppressedRepeats"] = suppressed
+    trackEvent(name, parameters: parameters)
+}
+
 func trackEvent(_ name: String, parameters: [String: Any] = [:]) {
     guard !AnalyticsSecrets.postHogAPIKey.isEmpty else { return }
     var enriched = parameters
@@ -4626,7 +4639,7 @@ extension AppDelegate: AudioCaptureDelegate {
             hadAudioFailure = false
             appLog("Audio capture recovered after failure")
             if currentInputDeviceState?.userInitiated != true {
-                trackEvent("deviceSwitchRecovered", parameters: [
+                trackEventThrottled("deviceSwitchRecovered", key: currentInputDeviceState?.deviceName ?? "unknown", parameters: [
                     "device": currentInputDeviceState?.deviceName ?? "unknown",
                 ])
             }
@@ -4655,7 +4668,7 @@ extension AppDelegate: AudioCaptureDelegate {
         case .failed:
             hadAudioFailure = true
             appLog("Input device failed: \(state.deviceName) — \(state.detail ?? "Unknown failure")")
-            trackEvent("deviceSwitchFailed", parameters: [
+            trackEventThrottled("deviceSwitchFailed", key: currentInputDeviceState?.deviceName ?? "unknown", parameters: [
                 "reason": "deviceFailed",
                 "device": state.deviceName,
                 "detail": state.detail ?? "unknown",
@@ -4666,7 +4679,7 @@ extension AppDelegate: AudioCaptureDelegate {
         case .ready:
             if state.userInitiated {
                 appLog("Input device ready: \(state.deviceName)")
-                trackEvent("deviceSwitchRecovered", parameters: ["device": state.deviceName])
+                trackEventThrottled("deviceSwitchRecovered", key: currentInputDeviceState?.deviceName ?? "unknown", parameters: ["device": state.deviceName])
             }
         case .startedAwaitingCallbacks, .awaitingSignal, .idle:
             break
@@ -4700,7 +4713,7 @@ extension AppDelegate: AudioCaptureDelegate {
                     appState.currentState = .idle
                     return
                 }
-                trackEvent("deviceSwitchFailed", parameters: [
+                trackEventThrottled("deviceSwitchFailed", key: currentInputDeviceState?.deviceName ?? "unknown", parameters: [
                     "reason": "noInputDevice",
                     "device": "none",
                     "detail": "no input device available",
@@ -4711,7 +4724,7 @@ extension AppDelegate: AudioCaptureDelegate {
                     appState.currentState = .idle
                     return
                 }
-                trackEvent("deviceSwitchFailed", parameters: [
+                trackEventThrottled("deviceSwitchFailed", key: currentInputDeviceState?.deviceName ?? "unknown", parameters: [
                     "reason": "engineStartFailed",
                     "device": "unknown",
                     "detail": underlying.localizedDescription,
@@ -5660,10 +5673,15 @@ extension AppDelegate: RealtimeParakeetServiceDelegate {
                 level: .error
             )
         }
-        trackEvent("errorOccurred", parameters: [
-            "source": "realtimeParakeet",
-            "error": error.localizedDescription,
-        ])
+        if case RealtimeParakeetServiceError.emptyFinalTranscript = error {
+            // Pressed the shortcut but said nothing — the Turbo twin of "No speech detected".
+            trackEventThrottled("realtimeNoSpeech", key: "realtimeParakeet", parameters: ["source": "realtimeParakeet"])
+        } else {
+            trackEvent("errorOccurred", parameters: [
+                "source": "realtimeParakeet",
+                "error": error.localizedDescription,
+            ])
+        }
 
         // Don't show internal state errors in the overlay — they're benign race conditions.
         if !(error is RealtimeParakeetServiceError),
@@ -5941,10 +5959,15 @@ private extension AppDelegate {
                 level: .error
             )
         }
-        trackEvent("errorOccurred", parameters: [
-            "source": "realtimeParakeetEou",
-            "error": error.localizedDescription,
-        ])
+        if case RealtimeParakeetServiceError.emptyFinalTranscript = error {
+            // Pressed the shortcut but said nothing — the Turbo twin of "No speech detected".
+            trackEventThrottled("realtimeNoSpeech", key: "realtimeParakeetEou", parameters: ["source": "realtimeParakeetEou"])
+        } else {
+            trackEvent("errorOccurred", parameters: [
+                "source": "realtimeParakeetEou",
+                "error": error.localizedDescription,
+            ])
+        }
 
         // Don't show internal state errors in the overlay — they're benign race conditions.
         if !(error is RealtimeParakeetServiceError),

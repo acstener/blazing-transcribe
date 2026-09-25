@@ -173,6 +173,9 @@ public final class AudioCaptureService {
 
     internal var startupCallbackTimeout: TimeInterval = 1.5
     internal var callbackStallTimeout: TimeInterval = 2.0
+    /// How long audio must flow after a start before retries are considered recovered.
+    internal var sustainedAudioResetInterval: TimeInterval = 10.0
+    private var captureStartedAt: Date?
     // Adaptive tail flush budget. The flush returns early once trailing audio
     // RMS falls below the silence threshold, so clean releases don't pay the
     // full wait — only mid-syllable releases do. The followup budget must cover
@@ -972,7 +975,10 @@ public final class AudioCaptureService {
             let info = try captureBackend.start(deviceID: selectedDeviceID)
             backend = captureBackend
             isRunning = true
-            startCoordinator.markSuccess()
+            // Don't reset the retry budget just because start() returned: a device can
+            // start and then never (or only briefly) deliver audio. The budget resets once
+            // audio has flowed steadily — see `noteSustainedAudioIfNeeded`.
+            captureStartedAt = Date()
             lastBufferObservedCycleID = nil
             lastSignalObservedCycleID = nil
             lastCallbackAt = nil
@@ -1047,6 +1053,15 @@ public final class AudioCaptureService {
         delegate?.audioCaptureDidStop()
     }
 
+    /// Resets the start-retry budget only after audio has flowed for a while, so a
+    /// start → stall → retry loop runs out of retries instead of looping forever.
+    private func noteSustainedAudioIfNeeded() {
+        guard let startedAt = captureStartedAt,
+              Date().timeIntervalSince(startedAt) >= sustainedAudioResetInterval else { return }
+        captureStartedAt = nil
+        startCoordinator.markSuccess()
+    }
+
     private func handleFirstCallback(startCycleID: Int) {
         guard Thread.isMainThread else {
             DispatchQueue.main.async { [weak self] in
@@ -1087,6 +1102,7 @@ public final class AudioCaptureService {
             guard self.startCoordinator.cycleID == startCycleID else { return }
 
             self.lastCallbackAt = Date()
+            self.noteSustainedAudioIfNeeded()
             self.currentLevel = normalizedLevel
             self.onAudioLevel?(normalizedLevel)
 

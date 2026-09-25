@@ -972,6 +972,41 @@ final class AudioCaptureServiceTests: XCTestCase {
         XCTAssertFalse(delegate.failures.isEmpty)
     }
 
+    /// Regression: a device that starts but never delivers audio used to retry forever
+    /// (every start reset the retry budget), producing ~1,650 failures/hour in the field.
+    func testSilentSystemDefaultDeviceGivesUpInsteadOfRetryingForever() {
+        let query = StubCoreAudioQuery(
+            devices: [7],
+            streamConfigs: [7: makeStreamConfigData(declaredBufferCount: 1, buffers: [makeAudioBuffer(channels: 1)])],
+            names: [7: "Built-in Mic"],
+            formats: [7: AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 48_000, channels: 1, interleaved: false)!],
+            defaultInputDevice: 7
+        )
+        let backend = FakeAudioCaptureBackend(
+            startInfo: AudioCaptureBackendStartInfo(
+                deviceID: 7,
+                deviceName: "Built-in Mic",
+                nativeFormat: AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 48_000, channels: 1, interleaved: false)!
+            )
+        )
+        AudioCaptureService.coreAudioQuery = query
+        AudioCaptureService.captureBackendFactory = { _, _, _ in backend }
+        AudioCaptureService.audioAuthorizationStatus = { .authorized }
+
+        let service = AudioCaptureService(ringBuffer: RingBuffer(capacity: 32_000))
+        service.preferredInputDeviceName = nil  // System Default: auto-recovery path
+        service.startupCallbackTimeout = 0.05
+
+        service.start()
+        // Retries back off 0.5s, 1s, 2s, then give up (~3.7s total).
+        RunLoop.main.run(until: Date().addingTimeInterval(5.0))
+        let startsAfterGivingUp = backend.startCallCount
+        XCTAssertEqual(startsAfterGivingUp, 4, "initial start + 3 retries")
+
+        RunLoop.main.run(until: Date().addingTimeInterval(2.0))
+        XCTAssertEqual(backend.startCallCount, startsAfterGivingUp, "must not keep retrying after giving up")
+    }
+
     func testSetInputDeviceClearsRingBufferAndStartsNewBackend() {
         let query = StubCoreAudioQuery(
             devices: [1, 2],
