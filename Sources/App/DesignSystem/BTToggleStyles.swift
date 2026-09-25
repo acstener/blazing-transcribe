@@ -27,7 +27,7 @@ private struct BTSwitch: View {
             } label: {
                 ZStack(alignment: configuration.isOn ? .trailing : .leading) {
                     Capsule()
-                        .fill(configuration.isOn ? Color.btAccent : Color.btActiveBackground)
+                        .fill(configuration.isOn ? Color.btAccent : Color.btSecondaryText.opacity(0.28))
                     Capsule()
                         .strokeBorder(Color.btBorder, lineWidth: configuration.isOn ? 0 : 1)
                     Circle()
