@@ -2803,6 +2803,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             alert.messageText = "\(modelInfo.label.replacingOccurrences(of: "☁ ", with: "")) needs an API key"
             alert.informativeText = "Enter your own API key in the AI Cleanup section of the main window to use this cloud provider. The local model and Filler Removal work without a key."
             alert.addButton(withTitle: "OK")
+            // Dock-hidden apps show modals behind other windows unless activated.
+            NSApp.activate(ignoringOtherApps: true)
             alert.runModal()
         }
         return false
@@ -2844,24 +2846,55 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    /// Last 5%-step shown in the menu's download-progress row — used to
+    /// throttle menu rebuilds during the local model download.
+    private var lastLocalModelMenuProgressStep = -1
+
+    /// Menu action: download the preferred local cleanup model directly, with
+    /// progress shown in the menu — no modal prompt to miss.
+    @objc private func downloadLocalModelClicked() {
+        guard let localInfo = LLMCleanupService.availableModels.first(
+            where: { $0.id == LLMCleanupService.preferredLocalModelID }
+        ) else { return }
+        guard !LLMCleanupService.isModelDownloaded(localInfo) else {
+            rebuildMenu()
+            return
+        }
+        guard viewModel.localModelDownloadProgress == nil else { return }
+        appLog("Menu: downloading local cleanup model \(localInfo.id)")
+        LLMCleanupService.useLocalModel = true
+        downloadAndActivateLocalModel(localInfo)
+        rebuildMenu()
+    }
+
     private func downloadAndActivateLocalModel(_ modelInfo: LLMCleanupService.ModelInfo) {
         viewModel.localModelDownloadProgress = 0
+        lastLocalModelMenuProgressStep = -1
         LLMCleanupService.shared.downloadModel(modelInfo, progress: { [weak self] pct in
             DispatchQueue.main.async {
-                self?.viewModel.localModelDownloadProgress = pct
+                guard let self else { return }
+                self.viewModel.localModelDownloadProgress = pct
+                // Refresh the menu's progress row at most every 5%.
+                let step = Int(pct * 20)
+                if step != self.lastLocalModelMenuProgressStep {
+                    self.lastLocalModelMenuProgressStep = step
+                    self.scheduleMenuRebuild()
+                }
             }
         }, completion: { [weak self] result in
             DispatchQueue.main.async {
                 self?.viewModel.localModelDownloadProgress = nil
                 switch result {
                 case .success:
+                    appLog("Local cleanup model downloaded: \(modelInfo.id)")
                     self?.viewModel.isLocalModelDownloaded = true
                     LLMCleanupService.modelID = modelInfo.id
                     LLMCleanupService.isEnabled = true
                     LLMCleanupService.shared.loadModel()
                     self?.rebuildMenu()
                 case .failure(let error):
-                    print("[LLMCleanup] Local model download failed: \(error.localizedDescription)")
+                    appLog("Local cleanup model download failed: \(error.localizedDescription)")
+                    self?.rebuildMenu()
                 }
             }
         })
@@ -2875,7 +2908,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             applyTextCleanupMode(.regex)
         } else {
             // Check if model is downloaded
-            guard let modelInfo = LLMCleanupService.availableModels.first(where: { $0.id == modelID }) else { return }
+            guard var modelInfo = LLMCleanupService.availableModels.first(where: { $0.id == modelID }) else { return }
+            var modelID = modelID
+
+            // An explicit click on "AI Cleanup" wired to a cloud model with no
+            // API key must not silently degrade to regex (that's the launch
+            // fallback in applyTextCleanupMode). Redirect to the local model so
+            // the click always leads somewhere: activate it if it's on disk,
+            // offer the download if not.
+            if modelInfo.isAPI, !canUseLLMCleanupModel(modelInfo, showAlert: false),
+               let localInfo = LLMCleanupService.availableModels.first(
+                   where: { $0.id == LLMCleanupService.preferredLocalModelID }
+               ) {
+                appLog("AI Cleanup clicked with no API key for \(modelID) — redirecting to local model \(localInfo.id)")
+                LLMCleanupService.useLocalModel = true
+                modelID = localInfo.id
+                modelInfo = localInfo
+            }
 
             if LLMCleanupService.isModelDownloaded(modelInfo) {
                 if modelInfo.isAPI {
@@ -2890,6 +2939,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 alert.messageText = "\(modelInfo.label) is a local candidate model"
                 alert.informativeText = "Place the GGUF at:\n\(LLMCleanupService.modelPath(for: modelInfo))"
                 alert.addButton(withTitle: "OK")
+                // Dock-hidden apps show modals behind other windows unless activated.
+                NSApp.activate(ignoringOtherApps: true)
                 alert.runModal()
             } else {
                 // Download the model first
@@ -2900,6 +2951,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 alert.addButton(withTitle: "Download")
                 alert.addButton(withTitle: "Cancel")
 
+                // Dock-hidden apps show modals behind other windows unless activated.
+                NSApp.activate(ignoringOtherApps: true)
                 if alert.runModal() == .alertFirstButtonReturn {
                     print("[LLMCleanup] Downloading \(modelInfo.label)...")
                     LLMCleanupService.shared.downloadModel(modelInfo, progress: { pct in
