@@ -329,6 +329,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// startup penalty and early speech can land before samples are flowing.
     private var shouldKeepCaptureRunningBetweenManualPresses: Bool {
         let mode = ShortcutConfig.shared.recordingMode
+        // A warm Bluetooth mic keeps headphones in low-quality call mode — never hold it open.
+        if mode == .manual && audioCapture.activeInputIsBluetooth { return false }
         return mode == .alwaysOn || keepMicReady || (mode == .manual && selectedTranscriptionPreset.usesRealtimeEngine)
     }
 
@@ -382,9 +384,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var keepWarmTimer: Timer?
     private static let keepWarmInterval: TimeInterval = 30
     // Mic idle-sleep ("Sleep When Idle"): poll the mic state and turn it fully
-    // off after `micIdleSleepMinutes` without dictation. Default 15; 0 = never.
+    // off after `micIdleSleepMinutes` without dictation. Default 1 (a short warm
+    // window after each burst of dictation, so the orange mic dot isn't on all day); 0 = never.
     private var micIdleTimer: Timer?
-    private static let micIdleCheckInterval: TimeInterval = 30
+    private static let micIdleCheckInterval: TimeInterval = 15
     private var micIdleAccumulatedSeconds: TimeInterval = 0
     private var cachedRealtimeEouPreset: TranscriptionPreset?
     private var cachedRealtimeEouContext: ASRContext?
@@ -502,7 +505,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Aqua override forces the overlay into a static light baseline and
         // breaks Liquid Glass adaptation on macOS 26.
         NSApp.appearance = nil
-        UserDefaults.standard.register(defaults: ["micIdleSleepMinutes": 15])
+        UserDefaults.standard.register(defaults: ["micIdleSleepMinutes": 1, "preferBuiltInMicOverBluetooth": true])
         NSApp.setActivationPolicy(userWantsDockIcon ? .regular : .accessory)
         applyApplicationIcon()
 
@@ -1672,6 +1675,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         // Load preferred mic (falls back to system default if unavailable)
         audioCapture.preferredInputDeviceName = UserDefaults.standard.string(forKey: "preferredInputDevice")
+        audioCapture.preferBuiltInMicOverBluetooth = UserDefaults.standard.bool(forKey: "preferBuiltInMicOverBluetooth")
+        audioCapture.onDiagnostic = { appLog($0) }
         let initialEngine = preferredStartupEngine
         applyEndpointingProfile(for: initialEngine)
 

@@ -9,8 +9,11 @@ private struct StubCoreAudioQuery: CoreAudioQuerying {
     let names: [AudioDeviceID: String]
     let formats: [AudioDeviceID: AVAudioFormat]
     let defaultInputDevice: AudioDeviceID?
+    var transports: [AudioDeviceID: UInt32] = [:]
 
     func deviceIDs() -> [AudioDeviceID] { devices }
+
+    func transportType(deviceID: AudioDeviceID) -> UInt32? { transports[deviceID] }
 
     func inputStreamConfiguration(deviceID: AudioDeviceID) -> Data? {
         streamConfigs[deviceID]
@@ -1005,6 +1008,46 @@ final class AudioCaptureServiceTests: XCTestCase {
 
         RunLoop.main.run(until: Date().addingTimeInterval(2.0))
         XCTAssertEqual(backend.startCallCount, startsAfterGivingUp, "must not keep retrying after giving up")
+    }
+
+    private func routingQuery(default defaultID: AudioDeviceID?) -> StubCoreAudioQuery {
+        var q = StubCoreAudioQuery(devices: [1, 2], streamConfigs: [:], names: [1: "MacBook Pro Microphone", 2: "AirPods Pro"],
+                                   formats: [:], defaultInputDevice: defaultID)
+        q.transports = [1: kAudioDeviceTransportTypeBuiltIn, 2: kAudioDeviceTransportTypeBluetooth]
+        return q
+    }
+    private let routingDevices: [(id: AudioDeviceID, name: String)] = [(1, "MacBook Pro Microphone"), (2, "AirPods Pro")]
+
+    func testBluetoothDefaultIsRoutedToBuiltInMic() {
+        let r = AudioCaptureService.resolveBluetoothRouting(selectedDeviceID: nil, availableDevices: routingDevices,
+                                                            preferBuiltIn: true, query: routingQuery(default: 2))
+        XCTAssertEqual(r, .init(deviceID: 1, transport: .builtIn, routedAroundBluetooth: true))
+    }
+
+    func testBluetoothDefaultKeptWhenPreferenceOff() {
+        let r = AudioCaptureService.resolveBluetoothRouting(selectedDeviceID: nil, availableDevices: routingDevices,
+                                                            preferBuiltIn: false, query: routingQuery(default: 2))
+        XCTAssertEqual(r, .init(deviceID: nil, transport: .bluetooth, routedAroundBluetooth: false))
+    }
+
+    func testExplicitlyChosenBluetoothMicIsRespected() {
+        let r = AudioCaptureService.resolveBluetoothRouting(selectedDeviceID: 2, availableDevices: routingDevices,
+                                                            preferBuiltIn: true, query: routingQuery(default: 1))
+        XCTAssertEqual(r, .init(deviceID: 2, transport: .bluetooth, routedAroundBluetooth: false))
+    }
+
+    func testBuiltInDefaultIsLeftAlone() {
+        let r = AudioCaptureService.resolveBluetoothRouting(selectedDeviceID: nil, availableDevices: routingDevices,
+                                                            preferBuiltIn: true, query: routingQuery(default: 1))
+        XCTAssertEqual(r, .init(deviceID: nil, transport: .builtIn, routedAroundBluetooth: false))
+    }
+
+    func testBluetoothDefaultWithNoBuiltInMicFallsBackToDefault() {
+        var q = routingQuery(default: 2)
+        q.transports[1] = kAudioDeviceTransportTypeUSB
+        let r = AudioCaptureService.resolveBluetoothRouting(selectedDeviceID: nil, availableDevices: routingDevices,
+                                                            preferBuiltIn: true, query: q)
+        XCTAssertEqual(r, .init(deviceID: nil, transport: .bluetooth, routedAroundBluetooth: false))
     }
 
     func testSetInputDeviceClearsRingBufferAndStartsNewBackend() {

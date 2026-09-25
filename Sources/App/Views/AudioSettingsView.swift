@@ -10,6 +10,7 @@ struct AudioSettingsView: View {
     @State private var vadThreshold: Double = UserDefaults.standard.object(forKey: "vadThreshold") != nil
         ? UserDefaults.standard.double(forKey: "vadThreshold") : 0.35
     @State private var cachedDevices: [(id: AudioDeviceID, name: String)] = []
+    @AppStorage("preferBuiltInMicOverBluetooth") private var preferBuiltInMicOverBluetooth = true
 
     var body: some View {
         ScrollView {
@@ -52,6 +53,29 @@ struct AudioSettingsView: View {
                                 }
                             }
                         }
+                    }
+                }
+
+                BTCard {
+                    HStack(alignment: .center, spacing: BTSpacing.md) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Use the Mac's mic with Bluetooth headphones")
+                                .font(.btBody)
+                                .foregroundStyle(Color.btText)
+                            Text("AirPods and other Bluetooth headphones drop to call-quality audio while their mic is on. Recording from your Mac keeps music sounding right.")
+                                .font(.btCaption)
+                                .foregroundStyle(Color.btSecondaryText)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Spacer(minLength: BTSpacing.md)
+                        Toggle("Use the Mac's mic with Bluetooth headphones", isOn: $preferBuiltInMicOverBluetooth)
+                            .toggleStyle(.btSwitch)
+                            .labelsHidden()
+                            .onChange(of: preferBuiltInMicOverBluetooth) { _, newValue in
+                                viewModel.audioCapture?.preferBuiltInMicOverBluetooth = newValue
+                                // Re-resolve the route now if we're following the system default.
+                                if selectedDevice.isEmpty { viewModel.audioCapture?.setInputDevice(0) }
+                            }
                     }
                 }
 

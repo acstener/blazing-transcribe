@@ -12,9 +12,9 @@ struct KeepMicActiveControl: View {
 
     @AppStorage("disableKeepMicReady") private var disableKeepMicReady = false
     /// 0 = never sleep. Defaults to 15 — sleep-when-idle is on out of the box.
-    @AppStorage("micIdleSleepMinutes") private var micIdleSleepMinutes = 15
+    @AppStorage("micIdleSleepMinutes") private var micIdleSleepMinutes = 1
 
-    private static let idleSleepMinuteOptions = [0, 5, 10, 15, 30, 60]
+    private static let idleSleepMinuteOptions = [0, 1, 5, 15, 30, 60]
 
     private var isForcedOnByAlwaysOnMode: Bool {
         viewModel.recordingMode == .alwaysOn || viewModel.transcriptionPreset.usesRealtimeEngine

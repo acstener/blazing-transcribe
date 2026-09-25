@@ -173,6 +173,14 @@ public final class AudioCaptureService {
 
     internal var startupCallbackTimeout: TimeInterval = 1.5
     internal var callbackStallTimeout: TimeInterval = 2.0
+    /// When the system default input is a Bluetooth headset, capture from the built-in mic.
+    public var preferBuiltInMicOverBluetooth = true
+    /// True while the live input is a Bluetooth mic (callers shouldn't keep it warm).
+    public private(set) var activeInputIsBluetooth = false
+    /// Receives one-line timing diagnostics (e.g. cold-start latency).
+    public var onDiagnostic: ((String) -> Void)?
+    private var startTiming: StartTiming?
+
     /// How long audio must flow after a start before retries are considered recovered.
     internal var sustainedAudioResetInterval: TimeInterval = 10.0
     private var captureStartedAt: Date?
@@ -937,6 +945,7 @@ public final class AudioCaptureService {
 
         isStartInFlight = true
         defer { isStartInFlight = false }
+        let startRequestedAt: Date? = Date()
 
         let availableDevices = Self.availableInputDevices(using: Self.coreAudioQuery)
         guard !availableDevices.isEmpty else {
@@ -963,6 +972,22 @@ public final class AudioCaptureService {
             selectedDeviceID = nil
         }
 
+        // Opening a Bluetooth headset's mic flips it from high-quality A2DP to
+        // low-quality HFP, so music sounds awful for as long as capture runs.
+        // When the *system default* input is Bluetooth, record from the built-in mic.
+        let routing = Self.resolveBluetoothRouting(
+            selectedDeviceID: selectedDeviceID,
+            availableDevices: availableDevices,
+            preferBuiltIn: preferBuiltInMicOverBluetooth,
+            query: Self.coreAudioQuery
+        )
+        let effectiveDeviceID = routing.deviceID
+        activeInputIsBluetooth = routing.transport == .bluetooth
+        if routing.routedAroundBluetooth {
+            print("[Audio] Default input is Bluetooth — recording from the built-in mic instead")
+        }
+        let queryDoneAt = Date()
+
         let captureBackend = Self.captureBackendFactory(Self.coreAudioQuery, targetSampleRate, targetChannels)
         captureBackend.onFirstCallback = { [weak self] in
             self?.handleFirstCallback(startCycleID: startCycleID)
@@ -972,7 +997,16 @@ public final class AudioCaptureService {
         }
 
         do {
-            let info = try captureBackend.start(deviceID: selectedDeviceID)
+            let info = try captureBackend.start(deviceID: effectiveDeviceID)
+            startTiming = StartTiming(
+                reason: startReason,
+                requestedAt: startRequestedAt ?? queryDoneAt,
+                queryDoneAt: queryDoneAt,
+                backendStartedAt: Date(),
+                deviceName: info.deviceName,
+                transport: routing.transport,
+                routedAroundBluetooth: routing.routedAroundBluetooth
+            )
             backend = captureBackend
             isRunning = true
             // Don't reset the retry budget just because start() returned: a device can
@@ -1072,6 +1106,10 @@ public final class AudioCaptureService {
         guard startCoordinator.cycleID == startCycleID else { return }
         lastBufferObservedCycleID = startCycleID
         lastCallbackAt = Date()
+        if let timing = startTiming {
+            startTiming = nil
+            onDiagnostic?(timing.summary(firstAudioAt: Date()))
+        }
         if inputDeviceState.phase == .startedAwaitingCallbacks {
             emitInputDeviceState(
                 phase: .awaitingSignal,
@@ -1776,5 +1814,57 @@ public final class AudioCaptureService {
         case .aggressiveParakeet, .realtimeParakeet:
             return 2_400
         }
+    }
+}
+
+// MARK: - Start timing & Bluetooth routing
+
+extension AudioCaptureService {
+    struct StartTiming {
+        let reason: String
+        let requestedAt: Date
+        let queryDoneAt: Date
+        let backendStartedAt: Date
+        let deviceName: String
+        let transport: InputTransport
+        let routedAroundBluetooth: Bool
+
+        func summary(firstAudioAt: Date) -> String {
+            func ms(_ a: Date, _ b: Date) -> Int { Int((b.timeIntervalSince(a) * 1000).rounded()) }
+            return "Timing: mic-start reason=\(reason) device=\"\(deviceName)\" transport=\(transport) " +
+                "routed_around_bluetooth=\(routedAroundBluetooth) " +
+                "query_ms=\(ms(requestedAt, queryDoneAt)) backend_start_ms=\(ms(queryDoneAt, backendStartedAt)) " +
+                "first_audio_ms=\(ms(backendStartedAt, firstAudioAt)) total_ms=\(ms(requestedAt, firstAudioAt))"
+        }
+    }
+
+    struct BluetoothRouting: Equatable {
+        let deviceID: AudioDeviceID?
+        let transport: InputTransport
+        let routedAroundBluetooth: Bool
+    }
+
+    /// Pure routing decision: only the *system default* is rerouted — an explicitly
+    /// chosen Bluetooth mic is respected.
+    static func resolveBluetoothRouting(
+        selectedDeviceID: AudioDeviceID?,
+        availableDevices: [(id: AudioDeviceID, name: String)],
+        preferBuiltIn: Bool,
+        query: any CoreAudioQuerying
+    ) -> BluetoothRouting {
+        if let selectedDeviceID {
+            return BluetoothRouting(deviceID: selectedDeviceID,
+                                    transport: InputTransport(rawTransport: query.transportType(deviceID: selectedDeviceID)),
+                                    routedAroundBluetooth: false)
+        }
+        let defaultID = query.defaultInputDeviceID()
+        let defaultTransport = defaultID.map { InputTransport(rawTransport: query.transportType(deviceID: $0)) } ?? .other
+        guard preferBuiltIn, defaultTransport == .bluetooth,
+              let builtIn = availableDevices.first(where: {
+                  InputTransport(rawTransport: query.transportType(deviceID: $0.id)) == .builtIn
+              }) else {
+            return BluetoothRouting(deviceID: nil, transport: defaultTransport, routedAroundBluetooth: false)
+        }
+        return BluetoothRouting(deviceID: builtIn.id, transport: .builtIn, routedAroundBluetooth: true)
     }
 }

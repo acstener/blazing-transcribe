@@ -8,6 +8,24 @@ internal protocol CoreAudioQuerying {
     func deviceName(deviceID: AudioDeviceID) -> String?
     func inputStreamFormat(deviceID: AudioDeviceID) -> AVAudioFormat?
     func defaultInputDeviceID() -> AudioDeviceID?
+    func transportType(deviceID: AudioDeviceID) -> UInt32?
+}
+
+extension CoreAudioQuerying {
+    /// Default for test stubs that don't model transports.
+    func transportType(deviceID: AudioDeviceID) -> UInt32? { nil }
+}
+
+internal enum InputTransport: Equatable {
+    case builtIn, bluetooth, other
+
+    init(rawTransport: UInt32?) {
+        switch rawTransport {
+        case kAudioDeviceTransportTypeBuiltIn: self = .builtIn
+        case kAudioDeviceTransportTypeBluetooth, kAudioDeviceTransportTypeBluetoothLE: self = .bluetooth
+        default: self = .other
+        }
+    }
 }
 
 internal struct SystemCoreAudioQuery: CoreAudioQuerying {
@@ -93,6 +111,18 @@ internal struct SystemCoreAudioQuery: CoreAudioQuerying {
             return nil
         }
         return AVAudioFormat(streamDescription: &asbd)
+    }
+
+    func transportType(deviceID: AudioDeviceID) -> UInt32? {
+        var transport: UInt32 = 0
+        var size = UInt32(MemoryLayout<UInt32>.size)
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyTransportType,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        guard AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &transport) == noErr else { return nil }
+        return transport
     }
 
     func defaultInputDeviceID() -> AudioDeviceID? {
