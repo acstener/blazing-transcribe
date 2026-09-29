@@ -9,20 +9,28 @@ internal protocol CoreAudioQuerying {
     func inputStreamFormat(deviceID: AudioDeviceID) -> AVAudioFormat?
     func defaultInputDeviceID() -> AudioDeviceID?
     func transportType(deviceID: AudioDeviceID) -> UInt32?
+    /// Clamshell mode: the built-in mic is hardware-disconnected but still listed.
+    func isLidClosed() -> Bool
 }
 
 extension CoreAudioQuerying {
     /// Default for test stubs that don't model transports.
     func transportType(deviceID: AudioDeviceID) -> UInt32? { nil }
+    func isLidClosed() -> Bool { false }
 }
 
 internal enum InputTransport: Equatable {
-    case builtIn, bluetooth, other
+    /// `wired` is a physical mic that isn't Bluetooth (USB, display, Thunderbolt...);
+    /// `other` covers virtual/aggregate/Continuity devices.
+    case builtIn, bluetooth, wired, other
 
     init(rawTransport: UInt32?) {
         switch rawTransport {
         case kAudioDeviceTransportTypeBuiltIn: self = .builtIn
         case kAudioDeviceTransportTypeBluetooth, kAudioDeviceTransportTypeBluetoothLE: self = .bluetooth
+        case kAudioDeviceTransportTypeUSB, kAudioDeviceTransportTypeFireWire, kAudioDeviceTransportTypeThunderbolt,
+             kAudioDeviceTransportTypeDisplayPort, kAudioDeviceTransportTypeHDMI, kAudioDeviceTransportTypePCI:
+            self = .wired
         default: self = .other
         }
     }
@@ -111,6 +119,10 @@ internal struct SystemCoreAudioQuery: CoreAudioQuerying {
             return nil
         }
         return AVAudioFormat(streamDescription: &asbd)
+    }
+
+    func isLidClosed() -> Bool {
+        LidStateMonitor.readLidClosed()
     }
 
     func transportType(deviceID: AudioDeviceID) -> UInt32? {

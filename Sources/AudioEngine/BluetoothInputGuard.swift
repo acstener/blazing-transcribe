@@ -11,6 +11,10 @@ import Foundation
 ///
 /// Only the automatic hop that follows a device connecting is undone, so picking
 /// AirPods as the input in System Settings later is respected.
+///
+/// Clamshell: with the lid closed the built-in mic is hardware-disconnected, so it's
+/// never chosen then (a wired mic is, if there is one). Closing the lid hands the
+/// input back to the headset we moved it off; opening it moves it to the Mac again.
 public final class BluetoothInputGuard {
     public static let shared = BluetoothInputGuard()
 
@@ -36,6 +40,9 @@ public final class BluetoothInputGuard {
     private var devicesListener: AudioObjectPropertyListenerBlock?
     private var defaultInputListener: AudioObjectPropertyListenerBlock?
     private var knownDeviceIDs: Set<AudioDeviceID> = []
+    private var lidObserver: NSObjectProtocol?
+    /// The headset the guard last moved the default input away from.
+    private var displacedHeadsetID: AudioDeviceID?
 
     /// macOS moves the default input a beat after the headset appears.
     static let arrivalWindow: TimeInterval = 5
@@ -45,7 +52,7 @@ public final class BluetoothInputGuard {
     }
 
     enum Trigger: Equatable {
-        case enabled, devicesChanged, defaultInputChanged
+        case enabled, devicesChanged, defaultInputChanged, lidOpened
     }
 
     struct InputDevice: Equatable {
@@ -54,19 +61,37 @@ public final class BluetoothInputGuard {
         let transport: InputTransport
     }
 
-    /// Pure decision: the built-in mic to switch to, or nil to leave the default alone.
+    /// Pure decision: the non-Bluetooth mic to switch to, or nil to leave the default alone.
     static func replacementInput(
         defaultInputID: AudioDeviceID?,
         inputs: [InputDevice],
         trigger: Trigger,
-        bluetoothJustArrived: Bool
+        bluetoothJustArrived: Bool,
+        lidClosed: Bool
     ) -> InputDevice? {
         guard let defaultInputID,
               let current = inputs.first(where: { $0.id == defaultInputID }),
               current.transport == .bluetooth else { return nil }
         // A later, deliberate pick of the headset mic is respected.
-        guard trigger == .enabled || bluetoothJustArrived else { return nil }
-        return inputs.first(where: { $0.transport == .builtIn })
+        guard trigger == .enabled || trigger == .lidOpened || bluetoothJustArrived else { return nil }
+        if !lidClosed, let builtIn = inputs.first(where: { $0.transport == .builtIn }) {
+            return builtIn
+        }
+        // Lid closed (or no built-in mic): only a wired mic is better than the headset.
+        return inputs.first(where: { $0.transport == .wired })
+    }
+
+    /// Pure decision for the lid closing: give the input back to the headset we displaced,
+    /// since the built-in mic it was moved to can no longer hear anything.
+    static func inputToRestoreOnLidClose(
+        defaultInputID: AudioDeviceID?,
+        inputs: [InputDevice],
+        displacedHeadsetID: AudioDeviceID?
+    ) -> InputDevice? {
+        guard let displacedHeadsetID,
+              let current = inputs.first(where: { $0.id == defaultInputID }),
+              current.transport == .builtIn else { return nil }
+        return inputs.first(where: { $0.id == displacedHeadsetID && $0.transport == .bluetooth })
     }
 
     private func currentInputs() -> [InputDevice] {
@@ -85,15 +110,33 @@ public final class BluetoothInputGuard {
             defaultInputID: defaultID,
             inputs: inputs,
             trigger: trigger,
-            bluetoothJustArrived: justArrived
+            bluetoothJustArrived: justArrived,
+            lidClosed: query.isLidClosed()
         ) else { return }
 
         let headsetName = inputs.first(where: { $0.id == defaultID })?.name ?? "Bluetooth headset"
         if Self.setDefaultInputDevice(target.id) {
+            displacedHeadsetID = defaultID
             onDiagnostic?("BluetoothInputGuard: default input \"\(headsetName)\" → \"\(target.name)\" (trigger=\(trigger))")
             onSwitchedAwayFromBluetooth?(headsetName)
         } else {
             onDiagnostic?("BluetoothInputGuard: failed to set default input to \"\(target.name)\"")
+        }
+    }
+
+    private func handleLidChanged() {
+        guard isEnabled else { return }
+        let inputs = currentInputs()
+        let defaultID = query.defaultInputDeviceID()
+        if query.isLidClosed() {
+            guard let headset = Self.inputToRestoreOnLidClose(
+                defaultInputID: defaultID, inputs: inputs, displacedHeadsetID: displacedHeadsetID
+            ) else { return }
+            if Self.setDefaultInputDevice(headset.id) {
+                onDiagnostic?("BluetoothInputGuard: lid closed — built-in mic is off, input back to \"\(headset.name)\"")
+            }
+        } else if let displacedHeadsetID, displacedHeadsetID == defaultID {
+            evaluate(trigger: .lidOpened)
         }
     }
 
@@ -137,6 +180,10 @@ public final class BluetoothInputGuard {
         AudioObjectAddPropertyListenerBlock(system, &defaultInputAddress, .main, defaultInput)
         devicesListener = devices
         defaultInputListener = defaultInput
+        LidStateMonitor.shared.start()
+        lidObserver = NotificationCenter.default.addObserver(
+            forName: LidStateMonitor.didChangeNotification, object: nil, queue: .main
+        ) { [weak self] _ in self?.handleLidChanged() }
     }
 
     private func removeListeners() {
@@ -152,6 +199,8 @@ public final class BluetoothInputGuard {
         devicesListener = nil
         defaultInputListener = nil
         lastDeviceArrivalAt = nil
+        if let lidObserver { NotificationCenter.default.removeObserver(lidObserver) }
+        lidObserver = nil
     }
 
     private static func setDefaultInputDevice(_ deviceID: AudioDeviceID) -> Bool {

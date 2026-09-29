@@ -1738,6 +1738,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             trackEventThrottled("bluetoothInputGuardSwitched", key: "switch", parameters: [:])
         }
         BluetoothInputGuard.shared.isEnabled = UserDefaults.standard.bool(forKey: Self.bluetoothInputGuardKey)
+        // Clamshell: the built-in mic goes deaf when the lid closes. Re-pick the mic
+        // (between recordings) so a warm capture doesn't sit on a silent device.
+        LidStateMonitor.shared.start()
+        NotificationCenter.default.addObserver(
+            forName: LidStateMonitor.didChangeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            guard let self else { return }
+            appLog("Lid \(LidStateMonitor.shared.isLidClosed ? "closed" : "opened")")
+            guard !self.isManualRecording, !self.isToggleRecording else { return }
+            self.audioCapture.refreshInputRoute(reason: "lid-change")
+        }
         let initialEngine = preferredStartupEngine
         applyEndpointingProfile(for: initialEngine)
 

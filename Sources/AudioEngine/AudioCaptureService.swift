@@ -325,6 +325,16 @@ public final class AudioCaptureService {
         }
     }
 
+    /// Re-resolve which mic to use (e.g. the lid opened or closed) without touching the
+    /// user's chosen device. Restarts capture only if it is running.
+    public func refreshInputRoute(reason: String) {
+        runOnMain { [weak self] in
+            guard let self, self.isRunning else { return }
+            self.onDiagnostic?("Audio: re-resolving input route (\(reason))")
+            self.restartForRouteChange(reason: reason)
+        }
+    }
+
     public func markRecordingStart() {
         manualRecordingBuffer.begin()
         manualRecordingStartSample = ringBuffer.totalSamplesWritten
@@ -868,6 +878,10 @@ public final class AudioCaptureService {
         }
 
         _ = beginInputDeviceStateTransaction(deviceName: selectedDeviceName, userInitiated: true)
+        restartForRouteChange(reason: "device-switch")
+    }
+
+    private func restartForRouteChange(reason: String) {
         _ = startCoordinator.invalidateCycle()
         retryWorkItem?.cancel()
         retryWorkItem = nil
@@ -879,7 +893,7 @@ public final class AudioCaptureService {
 
         if isRunning {
             stopOnMain(invalidateStartCycle: true)
-            startOnMain(reason: "device-switch")
+            startOnMain(reason: reason)
         } else {
             emitInputDeviceState(phase: .ready, detail: "Selected — will be used on next start")
         }
@@ -984,7 +998,7 @@ public final class AudioCaptureService {
         let effectiveDeviceID = routing.deviceID
         activeInputIsBluetooth = routing.transport == .bluetooth
         if routing.routedAroundBluetooth {
-            print("[Audio] Default input is Bluetooth — recording from the built-in mic instead")
+            print("[Audio] Default input is Bluetooth — recording from a non-Bluetooth mic instead")
         }
         let queryDoneAt = Date()
 
@@ -1845,26 +1859,49 @@ extension AudioCaptureService {
     }
 
     /// Pure routing decision: only the *system default* is rerouted — an explicitly
-    /// chosen Bluetooth mic is respected.
+    /// chosen Bluetooth mic is respected. With the lid closed the built-in mic records
+    /// silence, so it is never chosen then: a wired mic stands in, else the headset is used.
     static func resolveBluetoothRouting(
         selectedDeviceID: AudioDeviceID?,
         availableDevices: [(id: AudioDeviceID, name: String)],
         preferBuiltIn: Bool,
         query: any CoreAudioQuerying
     ) -> BluetoothRouting {
-        if let selectedDeviceID {
-            return BluetoothRouting(deviceID: selectedDeviceID,
-                                    transport: InputTransport(rawTransport: query.transportType(deviceID: selectedDeviceID)),
+        func transport(_ id: AudioDeviceID) -> InputTransport {
+            InputTransport(rawTransport: query.transportType(deviceID: id))
+        }
+        let lidClosed = query.isLidClosed()
+        // An explicit pick is honoured unless it's the (disconnected) built-in mic in clamshell.
+        if let selectedDeviceID, !(lidClosed && transport(selectedDeviceID) == .builtIn) {
+            return BluetoothRouting(deviceID: selectedDeviceID, transport: transport(selectedDeviceID),
                                     routedAroundBluetooth: false)
         }
         let defaultID = query.defaultInputDeviceID()
-        let defaultTransport = defaultID.map { InputTransport(rawTransport: query.transportType(deviceID: $0)) } ?? .other
-        guard preferBuiltIn, defaultTransport == .bluetooth,
-              let builtIn = availableDevices.first(where: {
-                  InputTransport(rawTransport: query.transportType(deviceID: $0.id)) == .builtIn
-              }) else {
+        let defaultTransport = defaultID.map(transport) ?? .other
+        func first(_ wanted: InputTransport) -> AudioDeviceID? {
+            availableDevices.first(where: { transport($0.id) == wanted })?.id
+        }
+
+        if lidClosed, defaultTransport == .builtIn {
+            // The default is a mic that can't hear anything: use a wired one, else Bluetooth.
+            if let wired = first(.wired) {
+                return BluetoothRouting(deviceID: wired, transport: .wired, routedAroundBluetooth: false)
+            }
+            if let headset = first(.bluetooth) {
+                return BluetoothRouting(deviceID: headset, transport: .bluetooth, routedAroundBluetooth: false)
+            }
             return BluetoothRouting(deviceID: nil, transport: defaultTransport, routedAroundBluetooth: false)
         }
-        return BluetoothRouting(deviceID: builtIn.id, transport: .builtIn, routedAroundBluetooth: true)
+
+        guard preferBuiltIn, defaultTransport == .bluetooth else {
+            return BluetoothRouting(deviceID: nil, transport: defaultTransport, routedAroundBluetooth: false)
+        }
+        if !lidClosed, let builtIn = first(.builtIn) {
+            return BluetoothRouting(deviceID: builtIn, transport: .builtIn, routedAroundBluetooth: true)
+        }
+        if let wired = first(.wired) {
+            return BluetoothRouting(deviceID: wired, transport: .wired, routedAroundBluetooth: true)
+        }
+        return BluetoothRouting(deviceID: nil, transport: defaultTransport, routedAroundBluetooth: false)
     }
 }
