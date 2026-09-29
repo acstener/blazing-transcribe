@@ -154,6 +154,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var nextTranscriptionRequestID: UInt64 = 0
     /// The app/element/window that were active when manual recording started, for sticky text delivery.
     private var manualRecordingOriginApp: NSRunningApplication?
+    /// One dictation recorded while the speech model warms up, transcribed once it's ready.
+    /// A cold start (the Neural Engine recompiling the model after an update or cache
+    /// eviction) takes ~30-60s; without this, presses in that window did nothing.
+    private var warmupHeldRequest: PendingTranscriptionRequest?
+    private var warmupHeldOriginApp: NSRunningApplication?
+    /// A released warm-up dictation whose app is no longer in front: copy, don't type.
+    private var clipboardDeliveryRequestID: UInt64?
     private var manualRecordingOriginElement: AXUIElement?
     private var manualRecordingOriginWindow: AXUIElement?
     /// Auto-stop timer for toggle recordings (10 min max).
@@ -1097,7 +1104,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return
         }
 
-        let delivered = deliverText(finalText)
+        let delivered: Bool
+        if let requestID = completedRequest?.id, requestID == clipboardDeliveryRequestID {
+            clipboardDeliveryRequestID = nil
+            delivered = deliverHeldDictationToClipboard(finalText)
+        } else {
+            delivered = deliverText(finalText)
+        }
         if delivered,
            let endpointAt = completedRequest?.speechTiming?.endpointDetectedAt {
             let totalStopToTextMs = Int(Date().timeIntervalSince(endpointAt) * 1000)
@@ -1719,6 +1732,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         audioCapture.preferredInputDeviceName = UserDefaults.standard.string(forKey: "preferredInputDevice")
         audioCapture.preferBuiltInMicOverBluetooth = UserDefaults.standard.bool(forKey: "preferBuiltInMicOverBluetooth")
         audioCapture.onDiagnostic = { appLog($0) }
+        // Experimental: keep the *system* input off Bluetooth headsets too.
+        BluetoothInputGuard.shared.onDiagnostic = { appLog($0) }
+        BluetoothInputGuard.shared.onSwitchedAwayFromBluetooth = { _ in
+            trackEventThrottled("bluetoothInputGuardSwitched", key: "switch", parameters: [:])
+        }
+        BluetoothInputGuard.shared.isEnabled = UserDefaults.standard.bool(forKey: Self.bluetoothInputGuardKey)
         let initialEngine = preferredStartupEngine
         applyEndpointingProfile(for: initialEngine)
 
@@ -1933,8 +1952,53 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func clearTransientOverlayAfterEngineReady() {
         noteEngineLoadSucceeded()
+        defer { releaseWarmupHeldDictation() }
         guard shouldShowPresetOverlay else { return }
         overlayPanel.show(status: .idle)
+    }
+
+    // MARK: - Warm-up dictation
+
+    private var canHoldDictationDuringWarmup: Bool {
+        isEngineLoading && !isCurrentEngineDownloadPending
+            && !selectedTranscriptionPreset.usesRealtimeEngine
+            && warmupHeldRequest == nil && !shouldRouteTranscriptionToOnboarding
+    }
+
+    private func holdDictationForWarmup(_ request: PendingTranscriptionRequest) {
+        warmupHeldRequest = request
+        warmupHeldOriginApp = manualRecordingOriginApp
+        appState.currentState = .transcribing
+        overlayPanel.show(status: currentEngineStartupOverlayStatus)
+        overlayPanel.showToast("Got it — typing as soon as the speech model is ready")
+        appLog("Warm-up: holding dictation id=\(request.id) speech_ms=\(Int(request.duration * 1000))")
+    }
+
+    /// Transcribe the held warm-up dictation. Types it only if the user is still in the
+    /// app they dictated into; otherwise copies it, so we never yank focus back.
+    private func releaseWarmupHeldDictation() {
+        guard let request = warmupHeldRequest else { return }
+        let originApp = warmupHeldOriginApp
+        warmupHeldRequest = nil
+        warmupHeldOriginApp = nil
+        let frontmostPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        let stillInOrigin = originApp.map { !$0.isTerminated && $0.processIdentifier == frontmostPID } ?? false
+        if stillInOrigin {
+            manualRecordingOriginApp = originApp
+        } else {
+            clipboardDeliveryRequestID = request.id
+        }
+        overlayPanel.show(status: .idle)
+        appLog("Warm-up: releasing dictation id=\(request.id) delivery=\(stillInOrigin ? "type" : "clipboard")")
+        trackEvent("warmupDictationReleased", parameters: ["delivery": stillInOrigin ? "type" : "clipboard"])
+        enqueueTranscription(request)
+    }
+
+    private func deliverHeldDictationToClipboard(_ text: String) -> Bool {
+        clipboardService.copy(text)
+        overlayPanel.show(status: .warning("Copied — paste it with ⌘V"))
+        appLog("Warm-up: copied held dictation to clipboard (app changed while model warmed up)")
+        return true
     }
 
     private func initSileroVAD() {
@@ -4960,6 +5024,10 @@ extension AppDelegate: AudioCaptureDelegate {
             "samples=\(request.samples.count) speech_ms=\(Int(request.duration * 1000)) " +
             "carryover_pending=\(pendingAlwaysOnBatchCarryover != nil)"
         )
+        if !transcriptionService.isReady, isEngineLoading, request.source == "ptt" || request.source == "toggle" {
+            holdDictationForWarmup(request)
+            return
+        }
         if isTranscriptionInProgress {
             pendingSpeechQueue.append(request)
             #if DEBUG
@@ -6308,7 +6376,7 @@ extension AppDelegate: GlobalShortcutDelegate {
     func pttDidPress() {
         guard ShortcutConfig.shared.recordingMode == .manual else { return }
         guard !isManualRecording else { return }
-        guard transcriptionService.isReady else {
+        guard transcriptionService.isReady || canHoldDictationDuringWarmup else {
             #if DEBUG
             print("[App] PTT ignored — engine not ready")
             #endif
@@ -6377,7 +6445,7 @@ extension AppDelegate: GlobalShortcutDelegate {
             finishToggleRecording()
         } else {
             // Start toggle recording
-            guard transcriptionService.isReady else {
+            guard transcriptionService.isReady || canHoldDictationDuringWarmup else {
                 #if DEBUG
                 print("[App] Toggle ignored — engine not ready")
                 #endif
@@ -6671,6 +6739,7 @@ extension AppDelegate {
     private static let modelLoadRetryBaseDelay: TimeInterval = 5
     private static let permissionWatchInterval: TimeInterval = 2
     private static let engineStartupFeedbackDuration: TimeInterval = 3
+    static let bluetoothInputGuardKey = "keepBluetoothHeadphonesHighQuality"
 
     private var hasCompletedOnboardingFlag: Bool {
         UserDefaults.standard.bool(forKey: FirstLaunchPolicy.hasCompletedOnboardingKey)
@@ -6911,6 +6980,16 @@ extension AppDelegate {
 
         if let startedAt = engineLoadStartedAt {
             engineLoadStartedAt = nil
+            // Cold starts are the Neural Engine recompiling the model (~30-60s after an
+            // app/OS update or cache eviction); warm ones are ~1s. Track how often users hit them.
+            let loadMs = Int(Date().timeIntervalSince(startedAt) * 1000)
+            appLog("Timing: engine-load engine=\(activeTranscriptionEngine.rawValue) load_ms=\(loadMs) download=\(engineLoadNeededDownload)")
+            trackEvent("engineLoadTimed", parameters: [
+                "engine": activeTranscriptionEngine.rawValue,
+                "loadMs": loadMs,
+                "cold": loadMs > 5000,
+                "neededDownload": engineLoadNeededDownload,
+            ])
             if !hasCompletedOnboardingFlag || engineLoadNeededDownload {
                 activationTracker.record(.modelReady, parameters: [
                     "durationSeconds": ActivationTracker.rounded(Date().timeIntervalSince(startedAt)),
@@ -6934,6 +7013,7 @@ extension AppDelegate {
     /// Replaces "FluidAudio failed: …" with human copy, and retries once
     /// automatically (with backoff) when the failure was network-shaped.
     fileprivate func handleEngineLoadFailure(_ error: Error) {
+        releaseWarmupHeldDictation()
         let kind = ModelLoadErrorCopy.kind(of: error)
         let duration = engineLoadStartedAt.map { Date().timeIntervalSince($0) } ?? 0
         engineLoadStartedAt = nil
