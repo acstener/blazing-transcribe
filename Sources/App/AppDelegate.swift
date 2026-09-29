@@ -336,8 +336,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// startup penalty and early speech can land before samples are flowing.
     private var shouldKeepCaptureRunningBetweenManualPresses: Bool {
         let mode = ShortcutConfig.shared.recordingMode
-        // A warm Bluetooth mic keeps headphones in low-quality call mode — never hold it open.
-        if mode == .manual && audioCapture.activeInputIsBluetooth { return false }
+        // A warm Bluetooth mic keeps headphones in call mode, so by default it's never held
+        // open. Opting in trades that for no cut-out after every dictation: each close flips
+        // the headphones back to full quality with an audible gap (idle sleep ends the hold).
+        if mode == .manual && audioCapture.activeInputIsBluetooth {
+            return UserDefaults.standard.bool(forKey: Self.holdBluetoothMicKey)
+        }
         return mode == .alwaysOn || keepMicReady || (mode == .manual && selectedTranscriptionPreset.usesRealtimeEngine)
     }
 
@@ -1904,7 +1908,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func tickMicIdleTimer() {
-        let minutes = UserDefaults.standard.integer(forKey: "micIdleSleepMinutes")
+        // A held Bluetooth mic always lets go after a minute, even with idle sleep off.
+        let minutes = audioCapture.activeInputIsBluetooth
+            ? Self.bluetoothMicHoldMinutes
+            : UserDefaults.standard.integer(forKey: "micIdleSleepMinutes")
         guard minutes > 0 else { micIdleAccumulatedSeconds = 0; return }
 
         // Nothing to sleep if the mic is already off (cold manual mode, muted,
@@ -6751,6 +6758,8 @@ extension AppDelegate {
     private static let permissionWatchInterval: TimeInterval = 2
     private static let engineStartupFeedbackDuration: TimeInterval = 3
     static let bluetoothInputGuardKey = "keepBluetoothHeadphonesHighQuality"
+    static let holdBluetoothMicKey = "holdBluetoothMicBetweenDictations"
+    private static let bluetoothMicHoldMinutes = 1
 
     private var hasCompletedOnboardingFlag: Bool {
         UserDefaults.standard.bool(forKey: FirstLaunchPolicy.hasCompletedOnboardingKey)

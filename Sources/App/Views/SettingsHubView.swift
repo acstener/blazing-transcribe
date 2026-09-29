@@ -20,6 +20,7 @@ struct SettingsHubView: View {
 struct ExperimentalSettingsView: View {
     @Environment(AppViewModel.self) private var model
     @AppStorage(AppDelegate.bluetoothInputGuardKey) private var keepBluetoothHeadphonesHighQuality = false
+    @AppStorage(AppDelegate.holdBluetoothMicKey) private var holdBluetoothMic = false
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
@@ -54,6 +55,23 @@ struct ExperimentalSettingsView: View {
                             .onChange(of: keepBluetoothHeadphonesHighQuality) { _, newValue in
                                 BluetoothInputGuard.shared.isEnabled = newValue
                             }
+                    }
+                }
+                BTCard {
+                    HStack(alignment: .center, spacing: BTSpacing.md) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("No music cut-outs when dictating with AirPods")
+                                .font(.btBody)
+                                .foregroundStyle(Color.btText)
+                            Text("When Blazing records from your AirPods' mic (lid closed, or with \"Use the Mac's mic\" off in Audio), macOS switches them to call mode and back after every dictation, and the switch back cuts your music out for a moment. This keeps the AirPods mic open for a minute after you finish, so there's one switch at the end instead of one per dictation.")
+                                .font(.btCaption)
+                                .foregroundStyle(Color.btSecondaryText)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Spacer(minLength: BTSpacing.md)
+                        Toggle("No music cut-outs when dictating with AirPods", isOn: $holdBluetoothMic)
+                            .toggleStyle(.btSwitch)
+                            .labelsHidden()
                     }
                 }
             }.padding(32).frame(maxWidth: 800, alignment: .leading)
